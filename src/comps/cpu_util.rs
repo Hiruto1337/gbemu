@@ -1,104 +1,112 @@
 use crate::comps::{cpu::CPUContext, instructions::RegType, bus::{bus_read, bus_write}};
 
-pub fn read_reg8(cpu: &mut CPUContext, rt: RegType) -> u8 {
-    type RT = RegType;
-    match rt {
-        RT::A => cpu.registers.a,
-        RT::F => cpu.registers.f,
-        RT::B => cpu.registers.b,
-        RT::C => cpu.registers.c,
-        RT::D => cpu.registers.d,
-        RT::E => cpu.registers.e,
-        RT::H => cpu.registers.h,
-        RT::L => cpu.registers.l,
-        RT::HL => bus_read(cpu, read_reg(cpu, Some(RT::HL))),
-        _ => panic!("INVALID REG8: {rt:?}")
+impl CPUContext {
+    pub fn read_reg8(&mut self, rt: RegType) -> u8 {
+        type RT = RegType;
+        match rt {
+            RT::A => self.registers.a,
+            RT::F => self.registers.f,
+            RT::B => self.registers.b,
+            RT::C => self.registers.c,
+            RT::D => self.registers.d,
+            RT::E => self.registers.e,
+            RT::H => self.registers.h,
+            RT::L => self.registers.l,
+            RT::HL => {
+                let address = self.read_reg(Some(RT::HL));
+                bus_read(self, address)
+            },
+            _ => panic!("INVALID REG8: {rt:?}")
+        }
     }
-}
-
-pub fn read_reg(cpu: &CPUContext, rt: Option<RegType>) -> u16 {
-    type RT = RegType;
-    // println!("{:#X}", cpu.cur_opcode);
-    match rt.unwrap() {
-        RT::NONE => panic!("UNKNOWN REGISTER TYPE"),
-        RT::A => return cpu.registers.a as u16,
-        RT::F => return cpu.registers.f as u16,
-        RT::B => return cpu.registers.b as u16,
-        RT::C => return cpu.registers.c as u16,
-        RT::D => return cpu.registers.d as u16,
-        RT::E => return cpu.registers.e as u16,
-        RT::H => return cpu.registers.h as u16,
-        RT::L => return cpu.registers.l as u16,
-
-        // NOTICE NOTICE NOTICE
-        RT::AF => return ((cpu.registers.a as u16) << 8) | (cpu.registers.f as u16),
-        RT::BC => return ((cpu.registers.b as u16) << 8) | (cpu.registers.c as u16),
-        RT::DE => return ((cpu.registers.d as u16) << 8) | (cpu.registers.e as u16),
-        RT::HL => return ((cpu.registers.h as u16) << 8) | (cpu.registers.l as u16),
-
-        RT::PC => return cpu.registers.pc,
-        RT::SP => return cpu.registers.sp
+    
+    pub fn read_reg(&mut self, rt: Option<RegType>) -> u16 {
+        type RT = RegType;
+        // println!("{:#X}", self.cur_opcode);
+        match rt.unwrap() {
+            RT::NONE => panic!("UNKNOWN REGISTER TYPE"),
+            RT::A => return self.registers.a as u16,
+            RT::F => return self.registers.f as u16,
+            RT::B => return self.registers.b as u16,
+            RT::C => return self.registers.c as u16,
+            RT::D => return self.registers.d as u16,
+            RT::E => return self.registers.e as u16,
+            RT::H => return self.registers.h as u16,
+            RT::L => return self.registers.l as u16,
+    
+            // NOTICE NOTICE NOTICE
+            RT::AF => return ((self.registers.a as u16) << 8) | (self.registers.f as u16),
+            RT::BC => return ((self.registers.b as u16) << 8) | (self.registers.c as u16),
+            RT::DE => return ((self.registers.d as u16) << 8) | (self.registers.e as u16),
+            RT::HL => return ((self.registers.h as u16) << 8) | (self.registers.l as u16),
+    
+            RT::PC => return self.registers.pc,
+            RT::SP => return self.registers.sp
+        }
     }
-}
-
-pub fn set_reg8(cpu: &mut CPUContext, rt: RegType, val: u8) {
-    type RT = RegType;
-    match rt {
-        RT::A => cpu.registers.a = val,
-        RT::F => cpu.registers.f = val,
-        RT::B => cpu.registers.b = val,
-        RT::C => cpu.registers.c = val,
-        RT::D => cpu.registers.d = val,
-        RT::E => cpu.registers.e = val,
-        RT::H => cpu.registers.h = val,
-        RT::L => cpu.registers.l = val,
-        RT::HL => bus_write(cpu, read_reg(cpu, Some(RT::HL)), val),
-        _ => panic!("INVALID REG8: {rt:?}")
+    
+    pub fn set_reg8(&mut self, rt: RegType, val: u8) {
+        type RT = RegType;
+        match rt {
+            RT::A => self.registers.a = val,
+            RT::F => self.registers.f = val,
+            RT::B => self.registers.b = val,
+            RT::C => self.registers.c = val,
+            RT::D => self.registers.d = val,
+            RT::E => self.registers.e = val,
+            RT::H => self.registers.h = val,
+            RT::L => self.registers.l = val,
+            RT::HL => {
+                let address = self.read_reg(Some(RT::HL));
+                bus_write(self, address, val);
+            },
+            _ => panic!("INVALID REG8: {rt:?}")
+        }
     }
-}
-
-pub fn set_reg(cpu: &mut CPUContext, rt: Option<RegType>, val: u16) {
-    let rt = rt.unwrap();
-
-    type RT = RegType;
-    match rt {
-        RT::NONE => panic!("UNKNOWN REGISTER TYPE"),
-        RT::A => cpu.registers.a = val as u8,
-        RT::F => cpu.registers.f = val as u8,
-        RT::B => cpu.registers.b = val as u8,
-        RT::C => cpu.registers.c = val as u8,
-        RT::D => cpu.registers.d = val as u8,
-        RT::E => cpu.registers.e = val as u8,
-        RT::H => cpu.registers.h = val as u8,
-        RT::L => cpu.registers.l = val as u8,
-
-        // NOTICE: Is this even implemented correctly?
-        RT::AF => {
-            cpu.registers.a = (val >> 8) as u8;
-            cpu.registers.f = val as u8;
-        },
-        RT::BC => {
-            cpu.registers.b = (val >> 8) as u8;
-            cpu.registers.c = val as u8;
-        },
-        RT::DE => {
-            cpu.registers.d = (val >> 8) as u8;
-            cpu.registers.e = val as u8;
-        },
-        RT::HL => {
-            cpu.registers.h = (val >> 8) as u8;
-            cpu.registers.l = val as u8;
-        },
-
-        RT::PC => cpu.registers.pc = val,
-        RT::SP => cpu.registers.sp = val
+    
+    pub fn set_reg(&mut self, rt: Option<RegType>, val: u16) {
+        let rt = rt.unwrap();
+    
+        type RT = RegType;
+        match rt {
+            RT::NONE => panic!("UNKNOWN REGISTER TYPE"),
+            RT::A => self.registers.a = val as u8,
+            RT::F => self.registers.f = val as u8,
+            RT::B => self.registers.b = val as u8,
+            RT::C => self.registers.c = val as u8,
+            RT::D => self.registers.d = val as u8,
+            RT::E => self.registers.e = val as u8,
+            RT::H => self.registers.h = val as u8,
+            RT::L => self.registers.l = val as u8,
+    
+            // NOTICE: Is this even implemented correctly?
+            RT::AF => {
+                self.registers.a = (val >> 8) as u8;
+                self.registers.f = val as u8;
+            },
+            RT::BC => {
+                self.registers.b = (val >> 8) as u8;
+                self.registers.c = val as u8;
+            },
+            RT::DE => {
+                self.registers.d = (val >> 8) as u8;
+                self.registers.e = val as u8;
+            },
+            RT::HL => {
+                self.registers.h = (val >> 8) as u8;
+                self.registers.l = val as u8;
+            },
+    
+            RT::PC => self.registers.pc = val,
+            RT::SP => self.registers.sp = val
+        }
     }
-}
-
-pub fn get_int_flags(cpu: &CPUContext) -> u8 {
-    cpu.int_flags
-}
-
-pub fn set_int_flags(cpu: &mut CPUContext, value: u8) {
-    cpu.int_flags = value;
+    
+    pub fn get_int_flags(&self) -> u8 {
+        self.int_flags
+    }
+    
+    pub fn set_int_flags(&mut self, value: u8) {
+        self.int_flags = value;
+    }
 }

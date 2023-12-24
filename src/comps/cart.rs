@@ -75,7 +75,7 @@ impl CartContext {
 
         // Open the file
         println!("Filename: {filename}");
-        let mut file = File::open(format!("/Users/lassegrosbol-rais/Desktop/{filename}")).unwrap();
+        let mut file = File::open(format!("/Users/lassegrosbol-rais/Desktop/gbemu/roms/{filename}")).unwrap();
         println!("Opened: {filename}");
 
         // Extract the data

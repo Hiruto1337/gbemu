@@ -1,4 +1,4 @@
-use crate::comps::{cpu_fetch::{fetch_instruction, fetch_data}, instructions::AddrMode, dbg::{dbg_print, dbg_update}, emu::EMULATOR, bus::bus_read};
+use crate::comps::{instructions::AddrMode, dbg::{dbg_print, dbg_update}, emu::EMULATOR, bus::bus_read};
 
 use super::{instructions::Instruction, common::*, cpu_proc::proc_by_inst, interrupts::*};
 
@@ -21,9 +21,9 @@ impl CPUContext {
     pub fn step(&mut self) {
         if !self.halted {
             let pc = self.registers.pc;
-            fetch_instruction(self);
+            self.fetch_instruction();
             EMULATOR.lock().unwrap().cycles(self, 1);
-            fetch_data(self);
+            self.fetch_data();
 
             let flags = format!("{}{}{}{}",
                 if self.registers.f & (1 << 7) != 0 {"Z"} else {"-"},
