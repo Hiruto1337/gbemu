@@ -1,34 +1,36 @@
 use super::{cart::CART, ram::RAM, io::{io_read, io_write}, cpu::CPUContext};
 
-pub fn bus_read(cpu: &mut CPUContext, address: u16) -> u8 {
+pub fn bus_read(cpu: &CPUContext, address: u16) -> u8 {
     let cart = &mut CART.lock().unwrap();
+    let ram = &mut RAM.lock().unwrap();
     match address {
         addr if addr < 0x8000 => cart.read(address), // ROM data
-        addr if addr < 0xA000 => {println!("UNSUPPORTED: Bus.read({address:04X}): CHR RAM, BG Map 1, BG Map 2"); return 0;}, // Char/map data
+        addr if addr < 0xA000 => {/*println!("UNSUPPORTED: Bus.read({address:04X}): CHR RAM, BG Map 1, BG Map 2"); */ return 0;}, // Char/map data
         addr if addr < 0xC000 => cart.read(address), // Cartridge RAM
-        addr if addr < 0xE000 => RAM.lock().unwrap().wram_read(address), // WRAM (Working RAM)
+        addr if addr < 0xE000 => ram.wram_read(address), // WRAM (Working RAM)
         addr if addr < 0xFE00 => 0, // Reserved echo RAM
-        addr if addr < 0xFEA0 => {println!("UNSUPPORTED: Bus.read({address:04X}): Object Attribute Memory"); return 0;}, // OAM
+        addr if addr < 0xFEA0 => {/*println!("UNSUPPORTED: Bus.read({address:04X}): Object Attribute Memory"); */ return 0;}, // OAM
         addr if addr < 0xFF00 => 0, // Unusable reserved,
         addr if addr < 0xFF80 => io_read(cpu, address), // I/O Registers
         addr if addr == 0xFFFF => cpu.get_ie_reg(), // CPU enable register
-        _ => RAM.lock().unwrap().hram_read(address) // HRAM (High RAM)
+        _ => ram.hram_read(address) // HRAM (High RAM)
     }
 }
 
 pub fn bus_write(cpu: &mut CPUContext, address: u16, value: u8) {
     let cart = &mut CART.lock().unwrap();
+    let ram = &mut RAM.lock().unwrap();
     match address {
         addr if addr < 0x8000 => cart.write(address, value), // ROM data
-        addr if addr < 0xA000 => println!("UNSUPPORTED: Bus.write({address:04X}): CHR RAM, BG Map 1, BG Map 2"), // Char/map data
+        addr if addr < 0xA000 => /*println!("UNSUPPORTED: Bus.write({address:04X}): CHR RAM, BG Map 1, BG Map 2")*/{}, // Char/map data
         addr if addr < 0xC000 => cart.write(address, value), // Cartridge RAM
-        addr if addr < 0xE000 => RAM.lock().unwrap().wram_write(address, value), // WRAM (Working RAM)
-        addr if addr < 0xFE00 => println!("UNSUPPORTED: Bus.write({address:04X}): Reserved echo RAM"), // Reserved echo RAM
-        addr if addr < 0xFEA0 => println!("UNSUPPORTED: Bus.write({address:04X}): Object Attribute Memory"), // OAM
-        addr if addr < 0xFF00 => println!("UNSUPPORTED: Bus.write({address:04X}): Unusable reserved"), // Unusable reserved,
+        addr if addr < 0xE000 => ram.wram_write(address, value), // WRAM (Working RAM)
+        addr if addr < 0xFE00 => /*println!("UNSUPPORTED: Bus.write({address:04X}): Reserved echo RAM")*/{}, // Reserved echo RAM
+        addr if addr < 0xFEA0 => /*println!("UNSUPPORTED: Bus.write({address:04X}): Object Attribute Memory")*/{}, // OAM
+        addr if addr < 0xFF00 => /*println!("UNSUPPORTED: Bus.write({address:04X}): Unusable reserved")*/{}, // Unusable reserved,
         addr if addr < 0xFF80 => io_write(cpu, address, value), // I/O Registers
         addr if addr == 0xFFFF => cpu.set_ie_reg(value), // CPU enable register
-        _ => RAM.lock().unwrap().hram_write(address, value) // HRAM (High RAM)
+        _ => ram.hram_write(address, value) // HRAM (High RAM)
     }
 }
 

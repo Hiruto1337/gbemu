@@ -1,3 +1,5 @@
+use std::io::Write;
+
 use crate::comps::{instructions::AddrMode, dbg::{dbg_print, dbg_update}, emu::EMULATOR, bus::bus_read};
 
 use super::{instructions::Instruction, common::*, cpu_proc::proc_by_inst, interrupts::*};
@@ -15,39 +17,60 @@ pub struct CPUContext {
     pub enabling_ime: bool,
     pub int_flags: u8,
     pub ie_register: u8,
+    pub file: std::fs::File
 }
 
 impl CPUContext {
     pub fn step(&mut self) {
         if !self.halted {
             let pc = self.registers.pc;
-            self.fetch_instruction();
-            EMULATOR.lock().unwrap().cycles(self, 1);
-            self.fetch_data();
 
-            let flags = format!("{}{}{}{}",
-                if self.registers.f & (1 << 7) != 0 {"Z"} else {"-"},
-                if self.registers.f & (1 << 6) != 0 {"N"} else {"-"},
-                if self.registers.f & (1 << 5) != 0 {"H"} else {"-"},
-                if self.registers.f & (1 << 4) != 0 {"C"} else {"-"},
-            );
-
-            println!("{:08X} - ${:04X}: {:10} ({:02X}, {:02X}, {:02X}), A: {:02X}, F: {} BC: {:02X}{:02X}, DE: {:02X}{:02X}, HL: {:02X}{:02X}",
-                EMULATOR.lock().unwrap().ticks,
-                pc,
-                self.inst_string(),
-                self.cur_opcode.to_owned(),
-                bus_read(self, pc + 1),
-                bus_read(self, pc + 2),
+            let log = format!("A:{:02X} F:{:02X} B:{:02X} C:{:02X} D:{:02X} E:{:02X} H:{:02X} L:{:02X} SP:{:04X} PC:{:04X} PCMEM:{:02X},{:02X},{:02X},{:02X}",
                 self.registers.a,
-                flags,
+                self.registers.f,
                 self.registers.b,
                 self.registers.c,
                 self.registers.d,
                 self.registers.e,
                 self.registers.h,
                 self.registers.l,
+                self.registers.sp,
+                pc,
+                bus_read(self, pc),
+                bus_read(self, pc + 1),
+                bus_read(self, pc + 2),
+                bus_read(self, pc + 3),
             );
+
+            writeln!(self.file, "{log}").unwrap();
+            
+            self.fetch_instruction();
+            EMULATOR.lock().unwrap().cycles(self, 1);
+            self.fetch_data();
+
+            // let flags = format!("{}{}{}{}",
+            //     if self.registers.f & (1 << 7) != 0 {"Z"} else {"-"},
+            //     if self.registers.f & (1 << 6) != 0 {"N"} else {"-"},
+            //     if self.registers.f & (1 << 5) != 0 {"H"} else {"-"},
+            //     if self.registers.f & (1 << 4) != 0 {"C"} else {"-"},
+            // );
+
+            // println!("{:08X} - ${:04X}: {:10} ({:02X}, {:02X}, {:02X}), A: {:02X}, F: {} BC: {:02X}{:02X}, DE: {:02X}{:02X}, HL: {:02X}{:02X}",
+            //     EMULATOR.lock().unwrap().ticks,
+            //     pc,
+            //     self.inst_string(),
+            //     self.cur_opcode.to_owned(),
+            //     bus_read(self, pc + 1),
+            //     bus_read(self, pc + 2),
+            //     self.registers.a,
+            //     flags,
+            //     self.registers.b,
+            //     self.registers.c,
+            //     self.registers.d,
+            //     self.registers.e,
+            //     self.registers.h,
+            //     self.registers.l,
+            // );
 
             dbg_update(self);
             dbg_print();
@@ -76,29 +99,23 @@ impl CPUContext {
         proc(self);
     }
 
-    // NOTICE NOTICE NOTICE: MIGHT THIS BE THE CAUSE FOR ERROR?
-    // fn reverse(n: u16) -> u16 {
-    //     return ((n & 0xFF00) >> 8) | ((n & 0x00FF) << 8);
-    // }
-
-    pub fn set_flags(&mut self, z: u8, n: u8, h: u8, c: u8) {
+    pub fn set_flags(&mut self, z: Option<bool>, n: Option<bool>, h: Option<bool>, c: Option<bool>) {
         let flags = &mut self.registers.f;
 
-        // flag == 2 -> Leave flag untouched
-        if z != 2 {
-            bit_set(flags, 7, z != 0);
+        if let Some(z) = z {
+            bit_set(flags, 7, z);
         }
 
-        if n != 2 {
-            bit_set(flags, 6, n != 0);
+        if let Some(n) = n {
+            bit_set(flags, 6, n);
         }
 
-        if h != 2 {
-            bit_set(flags, 5, h != 0);
+        if let Some(h) = h {
+            bit_set(flags, 5, h);
         }
 
-        if c != 2 {
-            bit_set(flags, 4, c != 0);
+        if let Some(c) = c {
+            bit_set(flags, 4, c);
         }
     }
 

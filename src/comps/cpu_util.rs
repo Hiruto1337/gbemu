@@ -22,7 +22,6 @@ impl CPUContext {
     
     pub fn read_reg(&mut self, rt: Option<RegType>) -> u16 {
         type RT = RegType;
-        // println!("{:#X}", self.cur_opcode);
         match rt.unwrap() {
             RT::NONE => panic!("UNKNOWN REGISTER TYPE"),
             RT::A => return self.registers.a as u16,
@@ -34,11 +33,10 @@ impl CPUContext {
             RT::H => return self.registers.h as u16,
             RT::L => return self.registers.l as u16,
     
-            // NOTICE NOTICE NOTICE
-            RT::AF => return ((self.registers.a as u16) << 8) | (self.registers.f as u16),
-            RT::BC => return ((self.registers.b as u16) << 8) | (self.registers.c as u16),
-            RT::DE => return ((self.registers.d as u16) << 8) | (self.registers.e as u16),
-            RT::HL => return ((self.registers.h as u16) << 8) | (self.registers.l as u16),
+            RT::AF => return ((self.registers.a as u16) << 8) | self.registers.f as u16,
+            RT::BC => return ((self.registers.b as u16) << 8) | self.registers.c as u16,
+            RT::DE => return ((self.registers.d as u16) << 8) | self.registers.e as u16,
+            RT::HL => return ((self.registers.h as u16) << 8) | self.registers.l as u16,
     
             RT::PC => return self.registers.pc,
             RT::SP => return self.registers.sp
@@ -64,11 +62,9 @@ impl CPUContext {
         }
     }
     
-    pub fn set_reg(&mut self, rt: Option<RegType>, val: u16) {
-        let rt = rt.unwrap();
-    
+    pub fn set_reg(&mut self, rt: Option<RegType>, val: u16) {    
         type RT = RegType;
-        match rt {
+        match rt.unwrap() {
             RT::NONE => panic!("UNKNOWN REGISTER TYPE"),
             RT::A => self.registers.a = val as u8,
             RT::F => self.registers.f = val as u8,
@@ -79,7 +75,6 @@ impl CPUContext {
             RT::H => self.registers.h = val as u8,
             RT::L => self.registers.l = val as u8,
     
-            // NOTICE: Is this even implemented correctly?
             RT::AF => {
                 self.registers.a = (val >> 8) as u8;
                 self.registers.f = val as u8;
@@ -96,7 +91,6 @@ impl CPUContext {
                 self.registers.h = (val >> 8) as u8;
                 self.registers.l = val as u8;
             },
-    
             RT::PC => self.registers.pc = val,
             RT::SP => self.registers.sp = val
         }

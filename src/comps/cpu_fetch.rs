@@ -49,10 +49,10 @@ impl CPUContext {
             AM::RxMR => {
                 let mut addr = self.read_reg(self.cur_inst.reg2);
     
-                if self.cur_inst.reg1.unwrap() == RegType::C {
+                if self.cur_inst.reg2.unwrap() == RegType::C {
                     addr |= 0xFF00;
                 }
-    
+
                 self.fetched_data = bus_read(self, addr) as u16;
                 EMULATOR.lock().unwrap().cycles(self, 1);
             },

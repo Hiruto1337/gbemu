@@ -180,13 +180,13 @@ pub const INSTRUCTIONS: [Instruction; 0x100] = [
     /*0x8D*/ Instruction::from(IN::ADC, AM::RxR, Some(RT::A), Some(RT::L), CT::NONE, None),
     /*0x8E*/ Instruction::from(IN::ADC, AM::RxMR, Some(RT::A), Some(RT::HL), CT::NONE, None),
     /*0x8F*/ Instruction::from(IN::ADC, AM::RxR, Some(RT::A), Some(RT::A), CT::NONE, None),
-    /*0x90*/ Instruction::from(IN::SUB, AM::R, Some(RT::B), None, CT::NONE, None),
-    /*0x91*/ Instruction::from(IN::SUB, AM::R, Some(RT::C), None, CT::NONE, None),
-    /*0x92*/ Instruction::from(IN::SUB, AM::R, Some(RT::D), None, CT::NONE, None),
-    /*0x93*/ Instruction::from(IN::SUB, AM::R, Some(RT::E), None, CT::NONE, None),
-    /*0x94*/ Instruction::from(IN::SUB, AM::R, Some(RT::H), None, CT::NONE, None),
-    /*0x95*/ Instruction::from(IN::SUB, AM::R, Some(RT::L), None, CT::NONE, None),
-    /*0x96*/ Instruction::from(IN::SUB, AM::MR, Some(RT::HL), None, CT::NONE, None),
+    /*0x90*/ Instruction::from(IN::SUB, AM::RxR, Some(RT::A), Some(RT::B), CT::NONE, None),
+    /*0x91*/ Instruction::from(IN::SUB, AM::RxR, Some(RT::A), Some(RT::C), CT::NONE, None),
+    /*0x92*/ Instruction::from(IN::SUB, AM::RxR, Some(RT::A), Some(RT::D), CT::NONE, None),
+    /*0x93*/ Instruction::from(IN::SUB, AM::RxR, Some(RT::A), Some(RT::E), CT::NONE, None),
+    /*0x94*/ Instruction::from(IN::SUB, AM::RxR, Some(RT::A), Some(RT::H), CT::NONE, None),
+    /*0x95*/ Instruction::from(IN::SUB, AM::RxR, Some(RT::A), Some(RT::L), CT::NONE, None),
+    /*0x96*/ Instruction::from(IN::SUB, AM::RxMR, Some(RT::A), Some(RT::HL), CT::NONE, None),
     /*0x97*/ Instruction::from(IN::SUB, AM::R, Some(RT::A), None, CT::NONE, None),
     /*0x98*/ Instruction::from(IN::SBC, AM::RxR, Some(RT::A), Some(RT::B), CT::NONE, None),
     /*0x99*/ Instruction::from(IN::SBC, AM::RxR, Some(RT::A), Some(RT::C), CT::NONE, None),
@@ -234,8 +234,7 @@ pub const INSTRUCTIONS: [Instruction; 0x100] = [
     /*0xC3*/ Instruction::from(IN::JP, AM::D16, None, None, CT::NONE, None),
     /*0xC4*/ Instruction::from(IN::CALL, AM::D16, None, None, CT::NZ, None),
     /*0xC5*/ Instruction::from(IN::PUSH, AM::R, Some(RT::BC), None, CT::NONE, None),
-    /*0xC6*/
-    Instruction::from(IN::ADD, AM::RxD8, Some(RT::A), None, CT::NONE, None), // NOTICE: Shouldn't this be AM:RxD8?
+    /*0xC6*/ Instruction::from(IN::ADD, AM::RxD8, Some(RT::A), None, CT::NONE, None),
     /*0xC7*/ Instruction::from(IN::RST, AM::IMP, None, None, CT::NONE, Some(0x00)),
     /*0xC8*/ Instruction::from(IN::RET, AM::IMP, None, None, CT::Z, None),
     /*0xC9*/ Instruction::from(IN::RET, AM::IMP, None, None, CT::NONE, None),
@@ -355,23 +354,27 @@ impl Display for RegType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         type RT = RegType;
 
-        write!(f, "{}", match *self {
-            RT::NONE => "NONE",
-            RT::A => "A",
-            RT::F => "F",
-            RT::B => "B",
-            RT::C => "C",
-            RT::D => "D",
-            RT::E => "E",
-            RT::H => "H",
-            RT::L => "L",
-            RT::AF => "AF",
-            RT::BC => "BC",
-            RT::DE => "DE",
-            RT::HL => "HL",
-            RT::SP => "SP",
-            RT::PC => "PC",
-        })
+        write!(
+            f,
+            "{}",
+            match *self {
+                RT::NONE => "NONE",
+                RT::A => "A",
+                RT::F => "F",
+                RT::B => "B",
+                RT::C => "C",
+                RT::D => "D",
+                RT::E => "E",
+                RT::H => "H",
+                RT::L => "L",
+                RT::AF => "AF",
+                RT::BC => "BC",
+                RT::DE => "DE",
+                RT::HL => "HL",
+                RT::SP => "SP",
+                RT::PC => "PC",
+            }
+        )
     }
 }
 #[derive(Clone, Copy)]

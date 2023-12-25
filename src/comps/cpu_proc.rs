@@ -17,9 +17,7 @@ fn proc_nop(_cpu: &mut CPUContext) {}
 
 fn proc_ld(cpu: &mut CPUContext) {
     if cpu.dest_is_mem {
-        // For instance LD (BC), A
         if cpu.cur_inst.reg2.is_some() && is_16_bit(cpu.cur_inst.reg2.unwrap()) {
-            // NOTICE NOTICE NOTICE: reg2 can be None?
             EMULATOR.lock().unwrap().cycles(cpu, 1);
             bus_write16(cpu, cpu.mem_dest, cpu.fetched_data);
         } else {
@@ -35,10 +33,10 @@ fn proc_ld(cpu: &mut CPUContext) {
         let h_flag = 0x10 <= (cpu.read_reg(cpu.cur_inst.reg2) & 0xF) + (cpu.fetched_data & 0xF);
         let c_flag = 0x100 <= (cpu.read_reg(cpu.cur_inst.reg2) & 0xFF) + (cpu.fetched_data & 0xFF);
 
-        cpu.set_flags(0, 0, h_flag as u8, c_flag as u8);
+        cpu.set_flags(Some(false), Some(false), Some(h_flag), Some(c_flag));
 
-        let val = (cpu.read_reg(cpu.cur_inst.reg2) as i32 + cpu.fetched_data as i32) as u16; // NOTICE: He casts to char???
-        cpu.set_reg(cpu.cur_inst.reg1, val);
+        let val = cpu.read_reg(cpu.cur_inst.reg2) as i32 + (cpu.fetched_data as i8) as i32;
+        cpu.set_reg(cpu.cur_inst.reg1, val as u16);
 
         return;
     }
@@ -47,7 +45,7 @@ fn proc_ld(cpu: &mut CPUContext) {
 }
 
 fn proc_inc(cpu: &mut CPUContext) {
-    let mut val = cpu.read_reg(cpu.cur_inst.reg1).wrapping_add(1); // NOTICE NOTICE NOTICE: WRAPPING ADD
+    let mut val = cpu.read_reg(cpu.cur_inst.reg1).wrapping_add(1);
 
     if is_16_bit(cpu.cur_inst.reg1.unwrap()) {
         EMULATOR.lock().unwrap().cycles(cpu, 1);
@@ -56,25 +54,21 @@ fn proc_inc(cpu: &mut CPUContext) {
     if cpu.cur_inst.reg1.unwrap() == RegType::HL && cpu.cur_inst.mode == AddrMode::MR {
         let address = cpu.read_reg(Some(RegType::HL));
         val = bus_read(cpu, address) as u16 + 1;
-        // NOTICE: He manually extracts bottom byte
-        let address = cpu.read_reg(Some(RegType::HL));
         bus_write(cpu, address, val as u8);
     } else {
         cpu.set_reg(cpu.cur_inst.reg1, val);
-        val = cpu.read_reg(cpu.cur_inst.reg1); // NOTICE: Why does this line exist?
+        val = cpu.read_reg(cpu.cur_inst.reg1);
     }
 
-    if cpu.cur_opcode & 0x03 == 0x03 {
-        // If both bottom bits are set
-        // No CPU-flags are changed
+    if cpu.cur_opcode & 0x3 == 0x3 {
         return;
     }
 
-    cpu.set_flags((val == 0) as u8, 0, ((val & 0x0F) == 0) as u8, 2) // NOTICE: This should be double checked
+    cpu.set_flags(Some(val == 0), Some(false), Some(val & 0xF == 0), None);
 }
 
 fn proc_dec(cpu: &mut CPUContext) {
-    let mut val = cpu.read_reg(cpu.cur_inst.reg1).wrapping_sub(1); // NOTICE NOTICE NOTICE: WRAPPING SUB
+    let mut val = cpu.read_reg(cpu.cur_inst.reg1).wrapping_sub(1);
 
     if is_16_bit(cpu.cur_inst.reg1.unwrap()) {
         EMULATOR.lock().unwrap().cycles(cpu, 1);
@@ -82,22 +76,18 @@ fn proc_dec(cpu: &mut CPUContext) {
 
     if cpu.cur_inst.reg1.unwrap() == RegType::HL && cpu.cur_inst.mode == AddrMode::MR {
         let address = cpu.read_reg(Some(RegType::HL));
-        val = bus_read(cpu, address) as u16 - 1;
-        // NOTICE: He manually extracts bottom byte
-        let address = cpu.read_reg(Some(RegType::HL));
+        val = (bus_read(cpu, address) as u16).wrapping_sub(1);
         bus_write(cpu, address, val as u8);
     } else {
         cpu.set_reg(cpu.cur_inst.reg1, val);
         val = cpu.read_reg(cpu.cur_inst.reg1);
     }
 
-    if cpu.cur_opcode & 0x0B == 0x0B {
-        // If both bottom bits are set
-        // No CPU-flags are changed
+    if cpu.cur_opcode & 0xB == 0xB {
         return;
     }
 
-    cpu.set_flags((val == 0) as u8, 1, ((val & 0x0F) == 0x0F) as u8, 2) // NOTICE: This should be double checked
+    cpu.set_flags(Some(val == 0), Some(true), Some(val & 0xF == 0xF), None) // NOTICE: This should be double checked
 }
 
 fn proc_rlca(cpu: &mut CPUContext) {
@@ -107,10 +97,14 @@ fn proc_rlca(cpu: &mut CPUContext) {
     u = (u << 1) | c;
     cpu.registers.a = u;
 
-    cpu.set_flags(0, 0, 0, c);
+    cpu.set_flags(Some(false), Some(false), Some(false), Some(c != 0));
 }
 
 fn proc_add(cpu: &mut CPUContext) {
+    // cpu.read_reg()
+    // cpu.set_reg()
+    // cpu.set_flags()
+
     let mut val = cpu.read_reg(cpu.cur_inst.reg1) as u32 + cpu.fetched_data as u32;
 
     let is_16bit = is_16_bit(cpu.cur_inst.reg1.unwrap());
@@ -120,31 +114,30 @@ fn proc_add(cpu: &mut CPUContext) {
     }
 
     if cpu.cur_inst.reg1.unwrap() == RegType::SP {
-        val = (cpu.read_reg(cpu.cur_inst.reg1) as i32 + (cpu.fetched_data as i16) as i32) as u32; // NOTICE: Hacky? xD
+        val = (cpu.read_reg(cpu.cur_inst.reg1) as i32 + (cpu.fetched_data as i8) as i32) as u32;
+        // NOTICE: Hacky? xD
     }
 
-    let mut z = (val as u8 == 0) as u8;
-    let mut h = (0x10 <= (cpu.read_reg(cpu.cur_inst.reg1) & 0xF) + (cpu.fetched_data & 0xF)) as u8;
-    let mut c =
-        (0x100 <= (cpu.read_reg(cpu.cur_inst.reg1) & 0xFF) + (cpu.fetched_data & 0xFF)) as u8;
+    let mut z = Some(val as u8 == 0);
+    let mut h = Some(0x10 <= (cpu.read_reg(cpu.cur_inst.reg1) & 0xF) + (cpu.fetched_data & 0xF));
+    let mut c = Some(0x100 <= (cpu.read_reg(cpu.cur_inst.reg1) & 0xFF) + (cpu.fetched_data & 0xFF));
 
     if is_16bit {
-        z = 2;
-        h = (0x1000 <= (cpu.read_reg(cpu.cur_inst.reg1) & 0xFFF) + (cpu.fetched_data & 0xFFF))
-            as u8;
+        z = None;
+        h = Some(0x1000 <= (cpu.read_reg(cpu.cur_inst.reg1) & 0xFFF) + (cpu.fetched_data & 0xFFF));
         let n = cpu.read_reg(cpu.cur_inst.reg1) as u32 + cpu.fetched_data as u32;
-        c = (0x10000 <= n) as u8;
+        c = Some(0x10000 <= n);
     }
 
     if cpu.cur_inst.reg1.unwrap() == RegType::SP {
-        z = 0;
-        h = (0x10 <= (cpu.read_reg(cpu.cur_inst.reg1) & 0xF) + (cpu.fetched_data & 0xF)) as u8;
-        c = (0x100 <= (cpu.read_reg(cpu.cur_inst.reg1) & 0xFF) + (cpu.fetched_data & 0xFF)) as u8;
+        z = Some(false);
+        h = Some(0x10 <= (cpu.read_reg(cpu.cur_inst.reg1) & 0xF) + (cpu.fetched_data & 0xF));
+        c = Some(0x100 <= (cpu.read_reg(cpu.cur_inst.reg1) & 0xFF) + (cpu.fetched_data & 0xFF));
         // NOTICE: Could be refactored
     }
 
     cpu.set_reg(cpu.cur_inst.reg1, val as u16);
-    cpu.set_flags(z, 0, h, c);
+    cpu.set_flags(z, Some(false), h, c);
 }
 
 fn proc_rrca(cpu: &mut CPUContext) {
@@ -152,7 +145,7 @@ fn proc_rrca(cpu: &mut CPUContext) {
     cpu.registers.a >>= 1;
     cpu.registers.a |= b << 7;
 
-    cpu.set_flags(0, 0, 0, b);
+    cpu.set_flags(Some(false), Some(false), Some(false), Some(b != 0));
 }
 
 fn proc_stop(_cpu: &mut CPUContext) {
@@ -165,12 +158,12 @@ fn proc_rla(cpu: &mut CPUContext) {
     let c = (u >> 7) & 1;
 
     cpu.registers.a = (u << 1) | c_flag;
-    cpu.set_flags(0, 0, 0, c);
+    cpu.set_flags(Some(false), Some(false), Some(false), Some(c != 0));
 }
 
 fn proc_jr(cpu: &mut CPUContext) {
     // NOTICE NOTICE NOTICE: THIS NEEDS VERIFICATION
-    let rel = (cpu.fetched_data as u8) as i8;
+    let rel = cpu.fetched_data as i8;
     let addr = (cpu.registers.pc as i32 + rel as i32) as u16;
     goto_addr(cpu, addr, false);
 }
@@ -182,14 +175,14 @@ fn proc_rra(cpu: &mut CPUContext) {
     cpu.registers.a >>= 1;
     cpu.registers.a |= carry << 7;
 
-    cpu.set_flags(0, 0, 0, new_c);
+    cpu.set_flags(Some(false), Some(false), Some(false), Some(new_c != 0));
 }
 
 fn proc_daa(cpu: &mut CPUContext) {
     let mut u = 0;
     let mut fc = 0;
 
-    if cpu.flag_h() != 0 || (cpu.flag_n() == 0 && 9 < cpu.registers.a & 0x0F) {
+    if cpu.flag_h() != 0 || (cpu.flag_n() == 0 && 9 < cpu.registers.a & 0xF) {
         u = 6;
     }
 
@@ -199,28 +192,28 @@ fn proc_daa(cpu: &mut CPUContext) {
     }
 
     if cpu.flag_n() != 0 {
-        cpu.registers.a = cpu.registers.a.wrapping_sub(u); // NOTICE NOTICE NOTICE: WRAPPING SUB
+        cpu.registers.a = cpu.registers.a.wrapping_sub(u);
     } else {
-        cpu.registers.a = cpu.registers.a.wrapping_add(u); // NOTICE NOTICE NOTICE: WRAPPING ADD
+        cpu.registers.a = cpu.registers.a.wrapping_add(u);
     }
 
-    let flag_z = (cpu.registers.a == 0) as u8;
+    let flag_z = cpu.registers.a == 0;
 
-    cpu.set_flags(flag_z, 2, 0, fc);
+    cpu.set_flags(Some(flag_z), None, Some(false), Some(fc != 0));
 }
 
 fn proc_cpl(cpu: &mut CPUContext) {
     cpu.registers.a = !cpu.registers.a;
-    cpu.set_flags(2, 1, 1, 2);
+    cpu.set_flags(None, Some(true), Some(true), None);
 }
 
 fn proc_scf(cpu: &mut CPUContext) {
-    cpu.set_flags(2, 0, 0, 1);
+    cpu.set_flags(None, Some(false), Some(false), Some(true));
 }
 
 fn proc_ccf(cpu: &mut CPUContext) {
     let flag_c = cpu.flag_c();
-    cpu.set_flags(2, 0, 0, flag_c ^ 1);
+    cpu.set_flags(None, Some(false), Some(false), Some(flag_c ^ 1 != 0));
 }
 
 fn proc_halt(cpu: &mut CPUContext) {
@@ -234,70 +227,67 @@ fn proc_adc(cpu: &mut CPUContext) {
 
     cpu.registers.a = (a + u + c) as u8;
 
-    let flag_z = (cpu.registers.a == 0) as u8;
-    cpu.set_flags(
-        flag_z,
-        0,
-        (0xF < (a & 0xF) + (u & 0xF) + c) as u8,
-        (0xFF < a + u + c) as u8,
-    )
+    let flag_z = cpu.registers.a == 0;
+    let flag_h = 0xF < (a & 0xF) + (u & 0xF) + c;
+    let flag_c = 0xFF < a + u + c;
+    cpu.set_flags(Some(flag_z), Some(false), Some(flag_h), Some(flag_c))
 }
 
 fn proc_sub(cpu: &mut CPUContext) {
     let val = cpu
         .read_reg(cpu.cur_inst.reg1)
-        .wrapping_sub(cpu.fetched_data); // NOTICE NOTICE NOTICE: WRAPPING SUB
+        .wrapping_sub(cpu.fetched_data);
 
-    let z = (val == 0) as u8;
-    let h = (((cpu.read_reg(cpu.cur_inst.reg1) & 0xF) as i32 - (cpu.fetched_data & 0xF) as i32) < 0)
-        as u8;
-    let c = ((cpu.read_reg(cpu.cur_inst.reg1) as i32 - cpu.fetched_data as i32) < 0) as u8; // NOTICE: Control that this works
+    let z = val == 0;
+    let h = (cpu.read_reg(cpu.cur_inst.reg1) & 0xF).checked_sub(cpu.fetched_data & 0xF).is_none();
+    let c = cpu.read_reg(cpu.cur_inst.reg1).checked_sub(cpu.fetched_data).is_none();
 
     cpu.set_reg(cpu.cur_inst.reg1, val);
-    cpu.set_flags(z, 1, h, c);
+    cpu.set_flags(Some(z), Some(true), Some(h), Some(c));
 }
 
 fn proc_sbc(cpu: &mut CPUContext) {
     // NOTICE: val is a u8???
-    let val = (cpu.fetched_data + cpu.flag_c() as u16) as u8; // NOTICE: Should flag C be able to be negative?
+    let val = (cpu.fetched_data + cpu.flag_c() as u16) as u8;
 
-    let z = (cpu.read_reg(cpu.cur_inst.reg1).wrapping_sub(val as u16) == 0) as u8; // NOTICE NOTICE NOTICE: WRAPPING SUB
-    let h = (((cpu.read_reg(cpu.cur_inst.reg1) & 0xF) as i32
-        - (cpu.fetched_data & 0xF) as i32
-        - cpu.flag_c() as i32)
-        < 0) as u8;
-    let c =
-        ((cpu.read_reg(cpu.cur_inst.reg1) as i32 - cpu.fetched_data as i32 - cpu.flag_c() as i32)
-            < 0) as u8; // NOTICE: Control that this works
+    let z = cpu.read_reg(cpu.cur_inst.reg1).wrapping_sub(val as u16) == 0;
+    let h = (cpu.read_reg(cpu.cur_inst.reg1) & 0xF)
+        .checked_sub((cpu.fetched_data & 0xF) + cpu.flag_c() as u16)
+        .is_none();
+    let c = cpu
+        .read_reg(cpu.cur_inst.reg1)
+        .checked_sub(cpu.fetched_data + cpu.flag_c() as u16)
+        .is_none(); // NOTICE: Control that this works
 
-    let val = cpu.read_reg(cpu.cur_inst.reg1).wrapping_sub(val as u16); // NOTICE NOTICE NOTICE: WRAPPING SUB
+    let val = cpu.read_reg(cpu.cur_inst.reg1).wrapping_sub(val as u16);
     cpu.set_reg(cpu.cur_inst.reg1, val);
-    cpu.set_flags(z, 1, h, c);
+    cpu.set_flags(Some(z), Some(true), Some(h), Some(c));
 }
 
 fn proc_and(cpu: &mut CPUContext) {
-    cpu.registers.a &= cpu.fetched_data as u8; // NOTICE: Will fetched_data write to both register A and F?
-    let flag_z = (cpu.registers.a == 0) as u8;
-    cpu.set_flags(flag_z, 0, 1, 0);
+    cpu.registers.a &= cpu.fetched_data as u8;
+    let flag_z = cpu.registers.a == 0;
+    cpu.set_flags(Some(flag_z), Some(false), Some(true), Some(false));
 }
 
 fn proc_xor(cpu: &mut CPUContext) {
     cpu.registers.a ^= cpu.fetched_data as u8; // NOTICE: He explicitly says he only wants the bottom byte of the fetched data here, but not in proc_and()?
-    let flag_z = (cpu.registers.a == 0) as u8;
-    cpu.set_flags(flag_z, 0, 0, 0);
+    let flag_z = cpu.registers.a == 0;
+    cpu.set_flags(Some(flag_z), Some(false), Some(false), Some(false));
 }
 
 fn proc_or(cpu: &mut CPUContext) {
     cpu.registers.a |= cpu.fetched_data as u8; // NOTICE: He explicitly says he only wants the bottom byte of the fetched data here, but not in proc_and()?
-    let flag_z = (cpu.registers.a == 0) as u8;
-    cpu.set_flags(flag_z, 0, 0, 0);
+    let flag_z = cpu.registers.a == 0;
+    cpu.set_flags(Some(flag_z), Some(false), Some(false), Some(false));
 }
 
 fn proc_cp(cpu: &mut CPUContext) {
     let n = cpu.registers.a as i32 - cpu.fetched_data as i32;
-    let flag_h =
-        (((cpu.registers.a & 0x0F) as i16) - (((cpu.fetched_data as u8) & 0x0F) as i16) < 0) as u8;
-    cpu.set_flags((n == 0) as u8, 1, flag_h, (n < 0) as u8)
+    let flag_h = (cpu.registers.a & 0xF)
+        .checked_sub((cpu.fetched_data & 0xF) as u8)
+        .is_none();
+    cpu.set_flags(Some(n == 0), Some(true), Some(flag_h), Some(n < 0))
 }
 
 fn proc_pop(cpu: &mut CPUContext) {
@@ -311,7 +301,7 @@ fn proc_pop(cpu: &mut CPUContext) {
 
     cpu.set_reg(cpu.cur_inst.reg1, result);
 
-    if let RegType::AF = cpu.cur_inst.reg1.unwrap() {
+    if cpu.cur_inst.reg1.unwrap() == RegType::AF {
         cpu.set_reg(cpu.cur_inst.reg1, result & 0xFFF0);
     }
 }
@@ -321,11 +311,12 @@ fn proc_jp(cpu: &mut CPUContext) {
 }
 
 fn proc_push(cpu: &mut CPUContext) {
-    let hi = (cpu.read_reg(cpu.cur_inst.reg1) >> 8) as u8;
+    let reg_1 = cpu.read_reg(cpu.cur_inst.reg1);
+    let hi = (reg_1 >> 8) as u8;
     EMULATOR.lock().unwrap().cycles(cpu, 1);
     stack_push(cpu, hi);
 
-    let lo = cpu.read_reg(cpu.cur_inst.reg1) as u8;
+    let lo = reg_1 as u8;
     EMULATOR.lock().unwrap().cycles(cpu, 1);
     stack_push(cpu, lo);
 
@@ -333,7 +324,6 @@ fn proc_push(cpu: &mut CPUContext) {
 }
 
 fn proc_ret(cpu: &mut CPUContext) {
-    // NOTICE: Something fishy might be going on here (Part 07, 10:05)
     if cpu.cur_inst.cond != CondType::NONE {
         EMULATOR.lock().unwrap().cycles(cpu, 1);
     }
@@ -369,7 +359,8 @@ fn proc_cb(cpu: &mut CPUContext) {
     match bit_op {
         1 => {
             // BIT
-            cpu.set_flags(((reg_val & (1 << bit)) == 0) as u8, 0, 1, 2); // NOTICE: Might need checking
+            let z = reg_val & (1 << bit) == 0;
+            cpu.set_flags(Some(z), Some(false), Some(true), None); // NOTICE: Might need checking
         }
         2 => {
             // RST
@@ -396,7 +387,7 @@ fn proc_cb(cpu: &mut CPUContext) {
                     }
 
                     cpu.set_reg8(reg, result);
-                    cpu.set_flags((result == 0) as u8, 0, 0, set_c as u8);
+                    cpu.set_flags(Some(result == 0), Some(false), Some(false), Some(set_c));
                 }
                 1 => {
                     // RRC
@@ -405,7 +396,12 @@ fn proc_cb(cpu: &mut CPUContext) {
                     reg_val |= old << 7;
 
                     cpu.set_reg8(reg, reg_val);
-                    cpu.set_flags((reg_val == 0) as u8, 0, 0, old & 1);
+                    cpu.set_flags(
+                        Some(reg_val == 0),
+                        Some(false),
+                        Some(false),
+                        Some(old & 1 != 0),
+                    );
                 }
                 2 => {
                     // RL
@@ -414,17 +410,27 @@ fn proc_cb(cpu: &mut CPUContext) {
                     reg_val |= c_flag;
 
                     cpu.set_reg8(reg, reg_val);
-                    cpu.set_flags((reg_val == 0) as u8, 0, 0, !!(old & 0x80)); // NOTICE: !! or "(as bool) as u8"?
+                    cpu.set_flags(
+                        Some(reg_val == 0),
+                        Some(false),
+                        Some(false),
+                        Some(old & 0x80 != 0),
+                    ); // NOTICE NOTICE NOTICE: !! or "(as bool) as u8"?
                 }
                 3 => {
                     // RR
                     let old = reg_val;
                     reg_val >>= 1;
 
-                    reg_val |= c_flag << 7; // NOTICE: If the C-flag can only have values 0, 1 and 2, how does this make any sense????????
+                    reg_val |= c_flag << 7;
 
                     cpu.set_reg8(reg, reg_val);
-                    cpu.set_flags((reg_val == 0) as u8, 0, 0, old & 1);
+                    cpu.set_flags(
+                        Some(reg_val == 0),
+                        Some(false),
+                        Some(false),
+                        Some(old & 1 != 0),
+                    );
                 }
                 4 => {
                     // SLA
@@ -432,26 +438,41 @@ fn proc_cb(cpu: &mut CPUContext) {
                     reg_val <<= 1;
 
                     cpu.set_reg8(reg, reg_val);
-                    cpu.set_flags((reg_val == 0) as u8, 0, 0, !!(old & 0x80)); // NOTICE: !! or "(as bool) as u8"?
+                    cpu.set_flags(
+                        Some(reg_val == 0),
+                        Some(false),
+                        Some(false),
+                        Some(old & 0x80 != 0),
+                    ); // NOTICE NOTICE NOTICE: !! or "(as bool) as u8"?
                 }
                 5 => {
                     // SRA
-                    let u = reg_val >> 1; // NOTICE: He does "let u = reg_val as i8 >> 1;""
+                    let u = ((reg_val as i8) >> 1) as u8; // NOTICE: He does "let u = reg_val as i8 >> 1;
 
                     cpu.set_reg8(reg, u);
-                    cpu.set_flags((u == 0) as u8, 0, 0, reg_val & 1);
+                    cpu.set_flags(
+                        Some(u == 0),
+                        Some(false),
+                        Some(false),
+                        Some(reg_val & 1 != 0),
+                    );
                 }
                 6 => {
                     // SWAP (nibbles)
-                    reg_val = ((reg_val & 0x0F) << 4) | (reg_val >> 4);
+                    reg_val = ((reg_val & 0xF) << 4) | ((reg_val & 0xF0) >> 4);
                     cpu.set_reg8(reg, reg_val);
-                    cpu.set_flags((reg_val == 0) as u8, 0, 0, 0);
+                    cpu.set_flags(Some(reg_val == 0), Some(false), Some(false), Some(false));
                 }
                 7 => {
                     // SRL
                     let u = reg_val >> 1;
                     cpu.set_reg8(reg, u);
-                    cpu.set_flags((u == 0) as u8, 0, 0, reg_val & 1);
+                    cpu.set_flags(
+                        Some(u == 0),
+                        Some(false),
+                        Some(false),
+                        Some(reg_val & 1 != 0),
+                    );
                 }
                 _ => panic!("INVALID CB: {op}"),
             }
@@ -497,25 +518,18 @@ fn proc_rst(cpu: &mut CPUContext) {
     goto_addr(cpu, cpu.cur_inst.param.unwrap() as u16, true) // NOTICE: Type coersion to u16?
 }
 
-fn proc_err(cpu: &mut CPUContext) {
-    panic!("PROCESS NOT YET IMPLEMENTED");
-}
-
 fn is_16_bit(rt: RegType) -> bool {
     RegType::AF as usize <= rt as usize // NOTICE: Pretty sure this should work?
 }
 
 fn check_cond(cpu: &mut CPUContext) -> bool {
-    let z = cpu.flag_z() != 0;
-    let c = cpu.flag_c() != 0;
-
     type CT = CondType;
     match cpu.cur_inst.cond {
         CT::NONE => true,
-        CT::C => c,
-        CT::NC => !c,
-        CT::Z => z,
-        CT::NZ => !z,
+        CT::C => cpu.flag_c() != 0,
+        CT::NC => cpu.flag_c() == 0,
+        CT::Z => cpu.flag_z() != 0,
+        CT::NZ => cpu.flag_z() == 0,
     }
 }
 
@@ -531,14 +545,7 @@ fn goto_addr(cpu: &mut CPUContext, address: u16, push_pc: bool) {
     }
 }
 
-fn proc_dummy(cpu: &mut CPUContext) {
-    panic!(
-        "PROCESS NOT IMPLEMENTED FOR INSTRUCTION: {}",
-        cpu.cur_inst.inst_type
-    )
-}
-
-pub const PROCESSORS: [&dyn Fn(&mut CPUContext) -> (); 48] = [
+pub const PROCESSORS: [&dyn Fn(&mut CPUContext) -> (); 36] = [
     &proc_none,
     &proc_nop,
     &proc_ld,
@@ -575,19 +582,6 @@ pub const PROCESSORS: [&dyn Fn(&mut CPUContext) -> (); 48] = [
     &proc_di,
     &proc_ei,
     &proc_rst,
-    &proc_err,
-    //CB instructions...
-    &proc_dummy,
-    &proc_dummy,
-    &proc_dummy,
-    &proc_dummy,
-    &proc_dummy,
-    &proc_dummy,
-    &proc_dummy,
-    &proc_dummy,
-    &proc_dummy,
-    &proc_dummy,
-    &proc_dummy,
 ];
 
 pub fn proc_by_inst(inst_type: InstType) -> &'static dyn Fn(&mut CPUContext) -> () {

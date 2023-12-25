@@ -22,8 +22,8 @@ impl ROMHeader {
         ROMHeader {
             entry: rom_data[0x100..=0x103].try_into().unwrap(),
             logo: rom_data[0x104..=0x133].try_into().unwrap(),
-            title: rom_data[0x134..=0x143].into_iter().map(|val| *val as char).collect::<Vec<char>>().try_into().unwrap(), // NOTICE: NEEDS TESTING
-            new_lic_code: (rom_data[0x144] as u16) << 8 | (rom_data[0x145] as u16), // NOTICE: NEEDS TESTING
+            title: rom_data[0x134..=0x143].into_iter().map(|val| *val as char).collect::<Vec<char>>().try_into().unwrap(),
+            new_lic_code: (rom_data[0x144] as u16) << 8 | (rom_data[0x145] as u16),
             sgb_flag: rom_data[0x146],
             type_: rom_data[0x147],
             rom_size: rom_data[0x148],
@@ -32,7 +32,7 @@ impl ROMHeader {
             lic_code: rom_data[0x14b],
             version: rom_data[0x14c],
             checksum: rom_data[0x14d],
-            global_checksum: (rom_data[0x14e] as u16) << 8 | (rom_data[0x14f] as u16), // NOTICE: NEEDS TESTING
+            global_checksum: (rom_data[0x14e] as u16) << 8 | (rom_data[0x14f] as u16),
         }
     }
 }
@@ -102,7 +102,7 @@ impl CartContext {
             x = x.wrapping_sub(self.rom_data[i] as u16).wrapping_sub(1);
         }
 
-        println!("\t Checksum : {:02X} ({})", header.checksum, if x as u8 != 0 {"PASSED"} else {"FAILED"}); // NOTICE: NEEDS TESTING
+        println!("\t Checksum : {:02X} ({})", header.checksum, if x as u8 != 0 {"PASSED"} else {"FAILED"});
 
         // Convert filename from &str to [char; 1024]
         let chars = filename.chars();
