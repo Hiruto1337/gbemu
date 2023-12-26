@@ -53,7 +53,7 @@ fn proc_inc(cpu: &mut CPUContext) {
 
     if cpu.cur_inst.reg1.unwrap() == RegType::HL && cpu.cur_inst.mode == AddrMode::MR {
         let address = cpu.read_reg(Some(RegType::HL));
-        val = bus_read(cpu, address) as u16 + 1;
+        val = (bus_read(cpu, address) as u16 + 1) & 0xFF;
         bus_write(cpu, address, val as u8);
     } else {
         cpu.set_reg(cpu.cur_inst.reg1, val);

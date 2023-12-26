@@ -1,6 +1,4 @@
-use std::io::Write;
-
-use crate::comps::{instructions::AddrMode, dbg::{dbg_print, dbg_update}, emu::EMULATOR, bus::bus_read};
+use crate::comps::{instructions::AddrMode, emu::EMULATOR, bus::bus_read};
 
 use super::{instructions::Instruction, common::*, cpu_proc::proc_by_inst, interrupts::*};
 
@@ -17,7 +15,6 @@ pub struct CPUContext {
     pub enabling_ime: bool,
     pub int_flags: u8,
     pub ie_register: u8,
-    pub file: std::fs::File
 }
 
 impl CPUContext {
@@ -25,55 +22,53 @@ impl CPUContext {
         if !self.halted {
             let pc = self.registers.pc;
 
-            let log = format!("A:{:02X} F:{:02X} B:{:02X} C:{:02X} D:{:02X} E:{:02X} H:{:02X} L:{:02X} SP:{:04X} PC:{:04X} PCMEM:{:02X},{:02X},{:02X},{:02X}",
-                self.registers.a,
-                self.registers.f,
-                self.registers.b,
-                self.registers.c,
-                self.registers.d,
-                self.registers.e,
-                self.registers.h,
-                self.registers.l,
-                self.registers.sp,
-                pc,
-                bus_read(self, pc),
-                bus_read(self, pc + 1),
-                bus_read(self, pc + 2),
-                bus_read(self, pc + 3),
-            );
-
-            writeln!(self.file, "{log}").unwrap();
-            
-            self.fetch_instruction();
-            EMULATOR.lock().unwrap().cycles(self, 1);
-            self.fetch_data();
-
-            // let flags = format!("{}{}{}{}",
-            //     if self.registers.f & (1 << 7) != 0 {"Z"} else {"-"},
-            //     if self.registers.f & (1 << 6) != 0 {"N"} else {"-"},
-            //     if self.registers.f & (1 << 5) != 0 {"H"} else {"-"},
-            //     if self.registers.f & (1 << 4) != 0 {"C"} else {"-"},
-            // );
-
-            // println!("{:08X} - ${:04X}: {:10} ({:02X}, {:02X}, {:02X}), A: {:02X}, F: {} BC: {:02X}{:02X}, DE: {:02X}{:02X}, HL: {:02X}{:02X}",
-            //     EMULATOR.lock().unwrap().ticks,
-            //     pc,
-            //     self.inst_string(),
-            //     self.cur_opcode.to_owned(),
-            //     bus_read(self, pc + 1),
-            //     bus_read(self, pc + 2),
+            // let log = format!("A:{:02X} F:{:02X} B:{:02X} C:{:02X} D:{:02X} E:{:02X} H:{:02X} L:{:02X} SP:{:04X} PC:{:04X} PCMEM:{:02X},{:02X},{:02X},{:02X}",
             //     self.registers.a,
-            //     flags,
+            //     self.registers.f,
             //     self.registers.b,
             //     self.registers.c,
             //     self.registers.d,
             //     self.registers.e,
             //     self.registers.h,
             //     self.registers.l,
+            //     self.registers.sp,
+            //     pc,
+            //     bus_read(self, pc),
+            //     bus_read(self, pc + 1),
+            //     bus_read(self, pc + 2),
+            //     bus_read(self, pc + 3),
             // );
+            
+            self.fetch_instruction();
+            EMULATOR.lock().unwrap().cycles(self, 1);
+            self.fetch_data();
 
-            dbg_update(self);
-            dbg_print();
+            let flags = format!("{}{}{}{}",
+                if self.registers.f & (1 << 7) != 0 {"Z"} else {"-"},
+                if self.registers.f & (1 << 6) != 0 {"N"} else {"-"},
+                if self.registers.f & (1 << 5) != 0 {"H"} else {"-"},
+                if self.registers.f & (1 << 4) != 0 {"C"} else {"-"},
+            );
+
+            println!("{:08X} - ${:04X}: {:10} ({:02X}, {:02X}, {:02X}), A: {:02X}, F: {} BC: {:02X}{:02X}, DE: {:02X}{:02X}, HL: {:02X}{:02X}",
+                EMULATOR.lock().unwrap().ticks,
+                pc,
+                self.inst_string(),
+                self.cur_opcode.to_owned(),
+                bus_read(self, pc + 1),
+                bus_read(self, pc + 2),
+                self.registers.a,
+                flags,
+                self.registers.b,
+                self.registers.c,
+                self.registers.d,
+                self.registers.e,
+                self.registers.h,
+                self.registers.l,
+            );
+
+            // dbg_update(self);
+            // dbg_print();
 
             self.execute();
         } else {

@@ -36,7 +36,6 @@ fn main() {
             cur_inst: &INSTRUCTIONS[0],
             halted: false,
             stepping: true,
-            file: std::fs::OpenOptions::new().create(true).append(true).open("log.txt").unwrap()
         };
 
         TIMER.lock().unwrap().div = 0xABCC;
@@ -50,7 +49,6 @@ fn main() {
             cpu.step();
         }
     });
-    // When cpu_init() is run, the timer's div is set to 0xABCC?
 
     while !EMULATOR.lock().unwrap().die {
         delay(1);
