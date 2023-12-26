@@ -21,7 +21,7 @@ pub fn timer_tick(cpu: &mut CPUContext) {
     let timer = &mut TIMER.lock().unwrap();
     let prev_div = timer.div;
 
-    timer.div = timer.div.wrapping_add(1); // NOTICE NOTICE NOTICE: WRAPPING ADD?
+    timer.div = timer.div.wrapping_add(1);
 
     let mut timer_update = false;
 
@@ -33,7 +33,7 @@ pub fn timer_tick(cpu: &mut CPUContext) {
         _ => println!("Unreachable")
     }
 
-    if timer_update && timer.tac & (1 << 2) != 0 { // NOTICE NOTICE NOTICE: Rewritten to fit Pan Docs
+    if timer_update && timer.tac & (1 << 2) != 0 { // NOTICE: Rewritten to fit Pan Docs
         match timer.tima.checked_add(1) {
             Some(result) => timer.tima = result,
             None => {

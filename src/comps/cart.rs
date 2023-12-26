@@ -40,7 +40,7 @@ impl ROMHeader {
 pub struct CartContext {
     filename: [char; 1024],
     rom_size: u32,
-    rom_data: Vec<u8>,
+    pub rom_data: Vec<u8>,
     header: ROMHeader
 }
 

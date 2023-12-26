@@ -14,3 +14,4 @@ pub mod cpu_util;
 pub mod cpu_fetch;
 pub mod io;
 pub mod dbg;
+pub mod dma;

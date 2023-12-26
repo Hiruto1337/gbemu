@@ -1,6 +1,8 @@
+use std::sync::Mutex;
+
 use crate::comps::{instructions::AddrMode, emu::EMULATOR, bus::bus_read};
 
-use super::{instructions::Instruction, common::*, cpu_proc::proc_by_inst, interrupts::*};
+use super::{instructions::{Instruction, INSTRUCTIONS}, common::*, cpu_proc::proc_by_inst, interrupts::*};
 
 pub struct CPUContext {
     pub registers: Registers,
@@ -17,59 +19,39 @@ pub struct CPUContext {
     pub ie_register: u8,
 }
 
+// pub static CPU: Mutex<CPUContext> = Mutex::new(CPUContext {
+//     registers: Registers {
+//         pc: 0x100,
+//         sp: 0xFFFE,
+//         a: 0x01,
+//         f: 0xB0,
+//         b: 0x00,
+//         c: 0x13,
+//         d: 0x00,
+//         e: 0xD8,
+//         h: 0x01,
+//         l: 0x4D,
+//     },
+//     ie_register: 0,
+//     int_flags: 0,
+//     int_master_enabled: false,
+//     enabling_ime: false,
+
+//     fetched_data: 0,
+//     mem_dest: 0,
+//     dest_is_mem: false,
+//     cur_opcode: 0,
+//     cur_inst: &INSTRUCTIONS[0],
+//     halted: false,
+//     stepping: true,
+// });
+
 impl CPUContext {
     pub fn step(&mut self) {
         if !self.halted {
-            let pc = self.registers.pc;
-
-            // let log = format!("A:{:02X} F:{:02X} B:{:02X} C:{:02X} D:{:02X} E:{:02X} H:{:02X} L:{:02X} SP:{:04X} PC:{:04X} PCMEM:{:02X},{:02X},{:02X},{:02X}",
-            //     self.registers.a,
-            //     self.registers.f,
-            //     self.registers.b,
-            //     self.registers.c,
-            //     self.registers.d,
-            //     self.registers.e,
-            //     self.registers.h,
-            //     self.registers.l,
-            //     self.registers.sp,
-            //     pc,
-            //     bus_read(self, pc),
-            //     bus_read(self, pc + 1),
-            //     bus_read(self, pc + 2),
-            //     bus_read(self, pc + 3),
-            // );
-            
             self.fetch_instruction();
             EMULATOR.lock().unwrap().cycles(self, 1);
             self.fetch_data();
-
-            let flags = format!("{}{}{}{}",
-                if self.registers.f & (1 << 7) != 0 {"Z"} else {"-"},
-                if self.registers.f & (1 << 6) != 0 {"N"} else {"-"},
-                if self.registers.f & (1 << 5) != 0 {"H"} else {"-"},
-                if self.registers.f & (1 << 4) != 0 {"C"} else {"-"},
-            );
-
-            println!("{:08X} - ${:04X}: {:10} ({:02X}, {:02X}, {:02X}), A: {:02X}, F: {} BC: {:02X}{:02X}, DE: {:02X}{:02X}, HL: {:02X}{:02X}",
-                EMULATOR.lock().unwrap().ticks,
-                pc,
-                self.inst_string(),
-                self.cur_opcode.to_owned(),
-                bus_read(self, pc + 1),
-                bus_read(self, pc + 2),
-                self.registers.a,
-                flags,
-                self.registers.b,
-                self.registers.c,
-                self.registers.d,
-                self.registers.e,
-                self.registers.h,
-                self.registers.l,
-            );
-
-            // dbg_update(self);
-            // dbg_print();
-
             self.execute();
         } else {
             EMULATOR.lock().unwrap().cycles(self, 1);

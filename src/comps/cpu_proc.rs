@@ -21,7 +21,7 @@ fn proc_ld(cpu: &mut CPUContext) {
             EMULATOR.lock().unwrap().cycles(cpu, 1);
             bus_write16(cpu, cpu.mem_dest, cpu.fetched_data);
         } else {
-            bus_write(cpu, cpu.mem_dest, cpu.fetched_data as u8); // NOTICE: He passes fetched_data raw (as a u16). Will this write to multiple places?
+            bus_write(cpu, cpu.mem_dest, cpu.fetched_data as u8);
         }
 
         EMULATOR.lock().unwrap().cycles(cpu, 1);
@@ -87,11 +87,10 @@ fn proc_dec(cpu: &mut CPUContext) {
         return;
     }
 
-    cpu.set_flags(Some(val == 0), Some(true), Some(val & 0xF == 0xF), None) // NOTICE: This should be double checked
+    cpu.set_flags(Some(val == 0), Some(true), Some(val & 0xF == 0xF), None)
 }
 
 fn proc_rlca(cpu: &mut CPUContext) {
-    // NOTICE: I did this somewhat differently
     let mut u = cpu.registers.a;
     let c = (u >> 7) & 1;
     u = (u << 1) | c;
@@ -101,10 +100,6 @@ fn proc_rlca(cpu: &mut CPUContext) {
 }
 
 fn proc_add(cpu: &mut CPUContext) {
-    // cpu.read_reg()
-    // cpu.set_reg()
-    // cpu.set_flags()
-
     let mut val = cpu.read_reg(cpu.cur_inst.reg1) as u32 + cpu.fetched_data as u32;
 
     let is_16bit = is_16_bit(cpu.cur_inst.reg1.unwrap());
@@ -115,7 +110,6 @@ fn proc_add(cpu: &mut CPUContext) {
 
     if cpu.cur_inst.reg1.unwrap() == RegType::SP {
         val = (cpu.read_reg(cpu.cur_inst.reg1) as i32 + (cpu.fetched_data as i8) as i32) as u32;
-        // NOTICE: Hacky? xD
     }
 
     let mut z = Some(val as u8 == 0);
@@ -133,7 +127,6 @@ fn proc_add(cpu: &mut CPUContext) {
         z = Some(false);
         h = Some(0x10 <= (cpu.read_reg(cpu.cur_inst.reg1) & 0xF) + (cpu.fetched_data & 0xF));
         c = Some(0x100 <= (cpu.read_reg(cpu.cur_inst.reg1) & 0xFF) + (cpu.fetched_data & 0xFF));
-        // NOTICE: Could be refactored
     }
 
     cpu.set_reg(cpu.cur_inst.reg1, val as u16);
@@ -149,7 +142,7 @@ fn proc_rrca(cpu: &mut CPUContext) {
 }
 
 fn proc_stop(_cpu: &mut CPUContext) {
-    panic!("STOPPING");
+    panic!("STOP");
 }
 
 fn proc_rla(cpu: &mut CPUContext) {
@@ -162,7 +155,6 @@ fn proc_rla(cpu: &mut CPUContext) {
 }
 
 fn proc_jr(cpu: &mut CPUContext) {
-    // NOTICE NOTICE NOTICE: THIS NEEDS VERIFICATION
     let rel = cpu.fetched_data as i8;
     let addr = (cpu.registers.pc as i32 + rel as i32) as u16;
     goto_addr(cpu, addr, false);
@@ -247,7 +239,6 @@ fn proc_sub(cpu: &mut CPUContext) {
 }
 
 fn proc_sbc(cpu: &mut CPUContext) {
-    // NOTICE: val is a u8???
     let val = (cpu.fetched_data + cpu.flag_c() as u16) as u8;
 
     let z = cpu.read_reg(cpu.cur_inst.reg1).wrapping_sub(val as u16) == 0;
@@ -257,7 +248,7 @@ fn proc_sbc(cpu: &mut CPUContext) {
     let c = cpu
         .read_reg(cpu.cur_inst.reg1)
         .checked_sub(cpu.fetched_data + cpu.flag_c() as u16)
-        .is_none(); // NOTICE: Control that this works
+        .is_none();
 
     let val = cpu.read_reg(cpu.cur_inst.reg1).wrapping_sub(val as u16);
     cpu.set_reg(cpu.cur_inst.reg1, val);
@@ -271,13 +262,13 @@ fn proc_and(cpu: &mut CPUContext) {
 }
 
 fn proc_xor(cpu: &mut CPUContext) {
-    cpu.registers.a ^= cpu.fetched_data as u8; // NOTICE: He explicitly says he only wants the bottom byte of the fetched data here, but not in proc_and()?
+    cpu.registers.a ^= cpu.fetched_data as u8;
     let flag_z = cpu.registers.a == 0;
     cpu.set_flags(Some(flag_z), Some(false), Some(false), Some(false));
 }
 
 fn proc_or(cpu: &mut CPUContext) {
-    cpu.registers.a |= cpu.fetched_data as u8; // NOTICE: He explicitly says he only wants the bottom byte of the fetched data here, but not in proc_and()?
+    cpu.registers.a |= cpu.fetched_data as u8;
     let flag_z = cpu.registers.a == 0;
     cpu.set_flags(Some(flag_z), Some(false), Some(false), Some(false));
 }
@@ -360,7 +351,7 @@ fn proc_cb(cpu: &mut CPUContext) {
         1 => {
             // BIT
             let z = reg_val & (1 << bit) == 0;
-            cpu.set_flags(Some(z), Some(false), Some(true), None); // NOTICE: Might need checking
+            cpu.set_flags(Some(z), Some(false), Some(true), None);
         }
         2 => {
             // RST
@@ -415,7 +406,7 @@ fn proc_cb(cpu: &mut CPUContext) {
                         Some(false),
                         Some(false),
                         Some(old & 0x80 != 0),
-                    ); // NOTICE NOTICE NOTICE: !! or "(as bool) as u8"?
+                    );
                 }
                 3 => {
                     // RR
@@ -443,11 +434,11 @@ fn proc_cb(cpu: &mut CPUContext) {
                         Some(false),
                         Some(false),
                         Some(old & 0x80 != 0),
-                    ); // NOTICE NOTICE NOTICE: !! or "(as bool) as u8"?
+                    );
                 }
                 5 => {
                     // SRA
-                    let u = ((reg_val as i8) >> 1) as u8; // NOTICE: He does "let u = reg_val as i8 >> 1;
+                    let u = ((reg_val as i8) >> 1) as u8;
 
                     cpu.set_reg8(reg, u);
                     cpu.set_flags(
@@ -515,11 +506,11 @@ fn proc_ei(cpu: &mut CPUContext) {
 }
 
 fn proc_rst(cpu: &mut CPUContext) {
-    goto_addr(cpu, cpu.cur_inst.param.unwrap() as u16, true) // NOTICE: Type coersion to u16?
+    goto_addr(cpu, cpu.cur_inst.param.unwrap() as u16, true);
 }
 
 fn is_16_bit(rt: RegType) -> bool {
-    RegType::AF as usize <= rt as usize // NOTICE: Pretty sure this should work?
+    RegType::AF as usize <= rt as usize
 }
 
 fn check_cond(cpu: &mut CPUContext) -> bool {
