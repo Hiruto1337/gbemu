@@ -1,67 +1,67 @@
-use std::{fs::File, os::unix::fs::MetadataExt, io::Read, sync::Mutex};
+use std::{fs::File, os::unix::fs::MetadataExt, io::Read, sync::RwLock};
 
 pub struct ROMHeader {
-    entry: [u8; 4],
-    logo: [u8; 0x30],
+    _entry: [u8; 4],
+    _logo: [u8; 0x30],
 
     title: [char; 16],
-    new_lic_code: u16,
-    sgb_flag: u8,
+    _new_lic_code: u16,
+    _sgb_flag: u8,
     type_: u8,
     rom_size: u8,
     ram_size: u8,
-    dest_code: u8,
+    _dest_code: u8,
     lic_code: u8,
     version: u8,
     checksum: u8,
-    global_checksum: u16,
+    _global_checksum: u16,
 }
 
 impl ROMHeader {
     pub fn from(rom_data: &Vec<u8>) -> Self {
         ROMHeader {
-            entry: rom_data[0x100..=0x103].try_into().unwrap(),
-            logo: rom_data[0x104..=0x133].try_into().unwrap(),
+            _entry: rom_data[0x100..=0x103].try_into().unwrap(),
+            _logo: rom_data[0x104..=0x133].try_into().unwrap(),
             title: rom_data[0x134..=0x143].into_iter().map(|val| *val as char).collect::<Vec<char>>().try_into().unwrap(),
-            new_lic_code: (rom_data[0x144] as u16) << 8 | (rom_data[0x145] as u16),
-            sgb_flag: rom_data[0x146],
+            _new_lic_code: (rom_data[0x144] as u16) << 8 | (rom_data[0x145] as u16),
+            _sgb_flag: rom_data[0x146],
             type_: rom_data[0x147],
             rom_size: rom_data[0x148],
             ram_size: rom_data[0x149],
-            dest_code: rom_data[0x14a],
+            _dest_code: rom_data[0x14a],
             lic_code: rom_data[0x14b],
             version: rom_data[0x14c],
             checksum: rom_data[0x14d],
-            global_checksum: (rom_data[0x14e] as u16) << 8 | (rom_data[0x14f] as u16),
+            _global_checksum: (rom_data[0x14e] as u16) << 8 | (rom_data[0x14f] as u16),
         }
     }
 }
 
 pub struct CartContext {
-    filename: [char; 1024],
+    _filename: [char; 1024],
     rom_size: u32,
     pub rom_data: Vec<u8>,
-    header: ROMHeader
+    _header: ROMHeader
 }
 
-pub static CART: Mutex<CartContext> = Mutex::new(CartContext {
-    filename: [' '; 1024],
+pub static CART: RwLock<CartContext> = RwLock::new(CartContext {
+    _filename: [' '; 1024],
     rom_size: 0,
     rom_data: vec![],
-    header: ROMHeader {
-        entry: [0; 4],
-        logo: [0; 48],
+    _header: ROMHeader {
+        _entry: [0; 4],
+        _logo: [0; 48],
         title: [' '; 16],
-        new_lic_code: 0,
-        sgb_flag: 0,
+        _new_lic_code: 0,
+        _sgb_flag: 0,
         type_: 0,
         rom_size: 0,
         ram_size: 0,
-        dest_code: 0,
+        _dest_code: 0,
         lic_code: 0,
         version: 0,
         checksum: 0,
-        global_checksum: 0
+        _global_checksum: 0
     }
 });
 
@@ -114,7 +114,7 @@ impl CartContext {
     }
 
     pub fn read(&self, address: u16) -> u8 {
-        return self.rom_data[address as usize];
+        self.rom_data[address as usize]
     }
 
     pub fn write(&mut self, address: u16, value: u8) {

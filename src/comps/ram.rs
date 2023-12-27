@@ -1,11 +1,11 @@
-use std::sync::Mutex;
+use std::sync::RwLock;
 
 pub struct RAMContext {
     wram: [u8; 0x2000],
     hram: [u8; 0x80],
 }
 
-pub static RAM: Mutex<RAMContext> = Mutex::new(RAMContext {
+pub static RAM: RwLock<RAMContext> = RwLock::new(RAMContext {
     wram: [0; 0x2000],
     hram: [0; 0x80],
 });

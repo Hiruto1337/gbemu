@@ -1,4 +1,4 @@
-use std::sync::Mutex;
+use std::sync::RwLock;
 
 use crate::comps::{instructions::AddrMode, emu::EMULATOR, bus::bus_read};
 
@@ -19,42 +19,62 @@ pub struct CPUContext {
     pub ie_register: u8,
 }
 
-// pub static CPU: Mutex<CPUContext> = Mutex::new(CPUContext {
-//     registers: Registers {
-//         pc: 0x100,
-//         sp: 0xFFFE,
-//         a: 0x01,
-//         f: 0xB0,
-//         b: 0x00,
-//         c: 0x13,
-//         d: 0x00,
-//         e: 0xD8,
-//         h: 0x01,
-//         l: 0x4D,
-//     },
-//     ie_register: 0,
-//     int_flags: 0,
-//     int_master_enabled: false,
-//     enabling_ime: false,
+pub static CPU: RwLock<CPUContext> = RwLock::new(CPUContext {
+    registers: Registers {
+        pc: 0x100,
+        sp: 0xFFFE,
+        a: 0x01,
+        f: 0xB0,
+        b: 0x00,
+        c: 0x13,
+        d: 0x00,
+        e: 0xD8,
+        h: 0x01,
+        l: 0x4D,
+    },
+    ie_register: 0,
+    int_flags: 0,
+    int_master_enabled: false,
+    enabling_ime: false,
 
-//     fetched_data: 0,
-//     mem_dest: 0,
-//     dest_is_mem: false,
-//     cur_opcode: 0,
-//     cur_inst: &INSTRUCTIONS[0],
-//     halted: false,
-//     stepping: true,
-// });
+    fetched_data: 0,
+    mem_dest: 0,
+    dest_is_mem: false,
+    cur_opcode: 0,
+    cur_inst: &INSTRUCTIONS[0],
+    halted: false,
+    stepping: true,
+});
 
 impl CPUContext {
     pub fn step(&mut self) {
         if !self.halted {
+            let pc = self.registers.pc;
             self.fetch_instruction();
-            EMULATOR.lock().unwrap().cycles(self, 1);
+
+            println!("{:08X} - ${:04X}: {:14} ({:02X} {:02X} {:02X}) A: {:02X} F: {:04b} BC: {:02X}{:02X} DE: {:02X}{:02X} HL: {:02X}{:02X}",
+                EMULATOR.read().unwrap().ticks,
+                pc,
+                self.inst_string(),
+                self.cur_opcode,
+                bus_read(self, pc + 1),
+                bus_read(self, pc + 2),
+                self.registers.a,
+                self.registers.f >> 4,
+                self.registers.b,
+                self.registers.c,
+                self.registers.d,
+                self.registers.e,
+                self.registers.h,
+                self.registers.l,
+            );
+            
+            EMULATOR.write().unwrap().cycles(self, 1);
             self.fetch_data();
+
             self.execute();
         } else {
-            EMULATOR.lock().unwrap().cycles(self, 1);
+            EMULATOR.write().unwrap().cycles(self, 1);
             if self.int_flags != 0 {
                 self.halted = false;
             }
@@ -96,19 +116,19 @@ impl CPUContext {
         }
     }
 
-    pub fn flag_z(&self) -> u8 {
+    pub fn flag_z(&self) -> bool {
         bit(self.registers.f, 7)
     }
 
-    pub fn flag_n(&self) -> u8 {
+    pub fn flag_n(&self) -> bool {
         bit(self.registers.f, 6)
     }
 
-    pub fn flag_h(&self) -> u8 {
+    pub fn flag_h(&self) -> bool {
         bit(self.registers.f, 5)
     }
 
-    pub fn flag_c(&self) -> u8 {
+    pub fn flag_c(&self) -> bool {
         bit(self.registers.f, 4)
     }
 
@@ -120,7 +140,7 @@ impl CPUContext {
         self.ie_register = value;
     }
 
-    fn inst_string(&mut self) -> String {
+    fn inst_string(&self) -> String {
         type AM = AddrMode;
         let inst = self.cur_inst;
 

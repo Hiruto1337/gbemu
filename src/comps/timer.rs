@@ -1,4 +1,4 @@
-use std::sync::Mutex;
+use std::sync::RwLock;
 
 use super::{cpu::CPUContext, interrupts::InterruptType};
 
@@ -10,7 +10,7 @@ pub struct TimerContext {
 }
 
 // GLOBAL TIMER
-pub static TIMER: Mutex<TimerContext> = Mutex::new(TimerContext {
+pub static TIMER: RwLock<TimerContext> = RwLock::new(TimerContext {
     div: 0xAC00,
     tima: 0,
     tma: 0,
@@ -18,19 +18,19 @@ pub static TIMER: Mutex<TimerContext> = Mutex::new(TimerContext {
 });
 
 pub fn timer_tick(cpu: &mut CPUContext) {
-    let timer = &mut TIMER.lock().unwrap();
+    let timer = &mut TIMER.write().unwrap();
     let prev_div = timer.div;
 
     timer.div = timer.div.wrapping_add(1);
 
-    let mut timer_update = false;
+    let timer_update;
 
     match timer.tac & 0b11 {
         0b00 => timer_update = (prev_div & (1 << 9) != 0) && (timer.div & (1 << 9) == 0),
         0b01 => timer_update = (prev_div & (1 << 3) != 0) && (timer.div & (1 << 3) == 0),
         0b10 => timer_update = (prev_div & (1 << 5) != 0) && (timer.div & (1 << 5) == 0),
         0b11 => timer_update = (prev_div & (1 << 7) != 0) && (timer.div & (1 << 7) == 0),
-        _ => println!("Unreachable")
+        _ => unreachable!()
     }
 
     if timer_update && timer.tac & (1 << 2) != 0 { // NOTICE: Rewritten to fit Pan Docs
@@ -45,7 +45,7 @@ pub fn timer_tick(cpu: &mut CPUContext) {
 }
 
 pub fn timer_write(address: u16, value: u8) {
-    let timer = &mut TIMER.lock().unwrap();
+    let mut timer = TIMER.write().unwrap();
 
     match address {
         0xFF04 => timer.div = 0,
@@ -57,7 +57,7 @@ pub fn timer_write(address: u16, value: u8) {
 }
 
 pub fn timer_read(address: u16) -> u8 {
-    let timer = &TIMER.lock().unwrap();
+    let timer = TIMER.read().unwrap();
     
     match address {
         0xFF04 => (timer.div >> 8) as u8,

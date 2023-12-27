@@ -1,6 +1,6 @@
-use std::sync::Mutex;
+use std::sync::RwLock;
 
-use super::{timer::timer_tick, cpu::CPUContext};
+use super::{timer::timer_tick, cpu::CPUContext, dma::DMA};
 
 /*
     Emu components:
@@ -25,7 +25,7 @@ pub struct EmulatorContext {
     pub ticks: u64,
 }
 
-pub static EMULATOR: Mutex<EmulatorContext> = Mutex::new(EmulatorContext {
+pub static EMULATOR: RwLock<EmulatorContext> = RwLock::new(EmulatorContext {
     running: true,
     paused: false,
     die: false,
@@ -34,11 +34,13 @@ pub static EMULATOR: Mutex<EmulatorContext> = Mutex::new(EmulatorContext {
 
 impl EmulatorContext {
     pub fn cycles(&mut self, cpu: &mut CPUContext, cpu_cycles: u8) {
-        let n = cpu_cycles as usize * 4;
+        for _ in 0..cpu_cycles {
+            for _ in 0..4 {
+                self.ticks += 1;
+                timer_tick(cpu);
+            }
 
-        for _ in 0..n {
-            self.ticks += 1;
-            timer_tick(cpu);
+            DMA.write().unwrap().tick(cpu);
         }
     }
 }

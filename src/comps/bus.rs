@@ -1,16 +1,19 @@
-use super::{cart::CART, ram::RAM, io::{io_read, io_write}, cpu::CPUContext, ppu::PPU};
+use super::{cart::CART, ram::RAM, io::{io_read, io_write}, cpu::CPUContext, ppu::PPU, dma::DMA};
 
 pub fn bus_read(cpu: &CPUContext, address: u16) -> u8 {
-    let cart = &mut CART.lock().unwrap();
-    let ram = &mut RAM.lock().unwrap();
-    let ppu = &mut PPU.lock().unwrap();
+    let cart = CART.read().unwrap();
+    let ram = RAM.read().unwrap();
+    let ppu = PPU.read().unwrap();
     match address {
         addr if addr < 0x8000 => cart.read(address),     // ROM data
         addr if addr < 0xA000 => ppu.vram_read(address), // Char/map data
         addr if addr < 0xC000 => cart.read(address),     // Cartridge RAM
         addr if addr < 0xE000 => ram.wram_read(address), // WRAM (Working RAM)
         addr if addr < 0xFE00 => 0,                      // Reserved echo RAM
-        addr if addr < 0xFEA0 => ppu.oam_read(address),  // OAM
+        addr if addr < 0xFEA0 => {                       // OAM
+            if DMA.read().unwrap().transferring() {return 0xFF;}
+            ppu.oam_read(address)
+        },
         addr if addr < 0xFF00 => 0,                      // Unusable reserved,
         addr if addr < 0xFF80 => io_read(cpu, address),  // I/O Registers
         addr if addr == 0xFFFF => cpu.get_ie_reg(),      // CPU enable register
@@ -19,16 +22,19 @@ pub fn bus_read(cpu: &CPUContext, address: u16) -> u8 {
 }
 
 pub fn bus_write(cpu: &mut CPUContext, address: u16, value: u8) {
-    let cart = &mut CART.lock().unwrap();
-    let ram = &mut RAM.lock().unwrap();
-    let ppu = &mut PPU.lock().unwrap();
+    let mut cart = CART.write().unwrap();
+    let mut ram = RAM.write().unwrap();
+    let mut ppu = PPU.write().unwrap();
     match address {
         addr if addr < 0x8000 => cart.write(address, value),                                           // ROM data
         addr if addr < 0xA000 => ppu.vram_write(address, value),                                       // Char/map data
         addr if addr < 0xC000 => cart.write(address, value),                                           // Cartridge RAM
         addr if addr < 0xE000 => ram.wram_write(address, value),                                       // WRAM (Working RAM)
         addr if addr < 0xFE00 => println!("UNSUPPORTED: Bus.write({address:04X}): Reserved echo RAM"), // Reserved echo RAM
-        addr if addr < 0xFEA0 => ppu.oam_write(address, value),                                        // OAM
+        addr if addr < 0xFEA0 => {                                                                     // OAM
+            if DMA.read().unwrap().transferring() {return;}
+            PPU.write().unwrap().oam_write(address, value);
+        },
         addr if addr < 0xFF00 => println!("UNSUPPORTED: Bus.write({address:04X}): Unusable reserved"), // Unusable reserved,
         addr if addr < 0xFF80 => io_write(cpu, address, value),                                        // I/O Registers
         addr if addr == 0xFFFF => cpu.set_ie_reg(value),                                               // CPU enable register

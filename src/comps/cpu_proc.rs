@@ -18,13 +18,13 @@ fn proc_nop(_cpu: &mut CPUContext) {}
 fn proc_ld(cpu: &mut CPUContext) {
     if cpu.dest_is_mem {
         if cpu.cur_inst.reg2.is_some() && is_16_bit(cpu.cur_inst.reg2.unwrap()) {
-            EMULATOR.lock().unwrap().cycles(cpu, 1);
+            EMULATOR.write().unwrap().cycles(cpu, 1);
             bus_write16(cpu, cpu.mem_dest, cpu.fetched_data);
         } else {
             bus_write(cpu, cpu.mem_dest, cpu.fetched_data as u8);
         }
 
-        EMULATOR.lock().unwrap().cycles(cpu, 1);
+        EMULATOR.write().unwrap().cycles(cpu, 1);
 
         return;
     }
@@ -48,7 +48,7 @@ fn proc_inc(cpu: &mut CPUContext) {
     let mut val = cpu.read_reg(cpu.cur_inst.reg1).wrapping_add(1);
 
     if is_16_bit(cpu.cur_inst.reg1.unwrap()) {
-        EMULATOR.lock().unwrap().cycles(cpu, 1);
+        EMULATOR.write().unwrap().cycles(cpu, 1);
     }
 
     if cpu.cur_inst.reg1.unwrap() == RegType::HL && cpu.cur_inst.mode == AddrMode::MR {
@@ -71,7 +71,7 @@ fn proc_dec(cpu: &mut CPUContext) {
     let mut val = cpu.read_reg(cpu.cur_inst.reg1).wrapping_sub(1);
 
     if is_16_bit(cpu.cur_inst.reg1.unwrap()) {
-        EMULATOR.lock().unwrap().cycles(cpu, 1);
+        EMULATOR.write().unwrap().cycles(cpu, 1);
     }
 
     if cpu.cur_inst.reg1.unwrap() == RegType::HL && cpu.cur_inst.mode == AddrMode::MR {
@@ -105,7 +105,7 @@ fn proc_add(cpu: &mut CPUContext) {
     let is_16bit = is_16_bit(cpu.cur_inst.reg1.unwrap());
 
     if is_16bit {
-        EMULATOR.lock().unwrap().cycles(cpu, 1);
+        EMULATOR.write().unwrap().cycles(cpu, 1);
     }
 
     if cpu.cur_inst.reg1.unwrap() == RegType::SP {
@@ -150,7 +150,7 @@ fn proc_rla(cpu: &mut CPUContext) {
     let c_flag = cpu.flag_c();
     let c = (u >> 7) & 1;
 
-    cpu.registers.a = (u << 1) | c_flag;
+    cpu.registers.a = (u << 1) | c_flag as u8;
     cpu.set_flags(Some(false), Some(false), Some(false), Some(c != 0));
 }
 
@@ -161,7 +161,7 @@ fn proc_jr(cpu: &mut CPUContext) {
 }
 
 fn proc_rra(cpu: &mut CPUContext) {
-    let carry = cpu.flag_c();
+    let carry = cpu.flag_c() as u8;
     let new_c = cpu.registers.a & 1;
 
     cpu.registers.a >>= 1;
@@ -174,16 +174,16 @@ fn proc_daa(cpu: &mut CPUContext) {
     let mut u = 0;
     let mut fc = 0;
 
-    if cpu.flag_h() != 0 || (cpu.flag_n() == 0 && 9 < cpu.registers.a & 0xF) {
+    if cpu.flag_h() || (!cpu.flag_n() && 9 < cpu.registers.a & 0xF) {
         u = 6;
     }
 
-    if cpu.flag_c() != 0 || (cpu.flag_n() == 0 && 0x99 < cpu.registers.a) {
+    if cpu.flag_c() || (!cpu.flag_n() && 0x99 < cpu.registers.a) {
         u |= 0x60;
         fc = 1;
     }
 
-    if cpu.flag_n() != 0 {
+    if cpu.flag_n() {
         cpu.registers.a = cpu.registers.a.wrapping_sub(u);
     } else {
         cpu.registers.a = cpu.registers.a.wrapping_add(u);
@@ -204,7 +204,7 @@ fn proc_scf(cpu: &mut CPUContext) {
 }
 
 fn proc_ccf(cpu: &mut CPUContext) {
-    let flag_c = cpu.flag_c();
+    let flag_c = cpu.flag_c() as u8;
     cpu.set_flags(None, Some(false), Some(false), Some(flag_c ^ 1 != 0));
 }
 
@@ -283,10 +283,10 @@ fn proc_cp(cpu: &mut CPUContext) {
 
 fn proc_pop(cpu: &mut CPUContext) {
     let lo = stack_pop(cpu) as u16;
-    EMULATOR.lock().unwrap().cycles(cpu, 1);
+    EMULATOR.write().unwrap().cycles(cpu, 1);
 
     let hi = stack_pop(cpu) as u16;
-    EMULATOR.lock().unwrap().cycles(cpu, 1);
+    EMULATOR.write().unwrap().cycles(cpu, 1);
 
     let result = (hi << 8) | lo;
 
@@ -304,33 +304,33 @@ fn proc_jp(cpu: &mut CPUContext) {
 fn proc_push(cpu: &mut CPUContext) {
     let reg_1 = cpu.read_reg(cpu.cur_inst.reg1);
     let hi = (reg_1 >> 8) as u8;
-    EMULATOR.lock().unwrap().cycles(cpu, 1);
+    EMULATOR.write().unwrap().cycles(cpu, 1);
     stack_push(cpu, hi);
 
     let lo = reg_1 as u8;
-    EMULATOR.lock().unwrap().cycles(cpu, 1);
+    EMULATOR.write().unwrap().cycles(cpu, 1);
     stack_push(cpu, lo);
 
-    EMULATOR.lock().unwrap().cycles(cpu, 1);
+    EMULATOR.write().unwrap().cycles(cpu, 1);
 }
 
 fn proc_ret(cpu: &mut CPUContext) {
     if cpu.cur_inst.cond != CondType::NONE {
-        EMULATOR.lock().unwrap().cycles(cpu, 1);
+        EMULATOR.write().unwrap().cycles(cpu, 1);
     }
 
     if check_cond(cpu) {
         let lo = stack_pop(cpu) as u16;
-        EMULATOR.lock().unwrap().cycles(cpu, 1);
+        EMULATOR.write().unwrap().cycles(cpu, 1);
 
         let hi = stack_pop(cpu) as u16;
-        EMULATOR.lock().unwrap().cycles(cpu, 1);
+        EMULATOR.write().unwrap().cycles(cpu, 1);
 
         let new_pc = (hi << 8) | lo;
 
         cpu.registers.pc = new_pc;
 
-        EMULATOR.lock().unwrap().cycles(cpu, 1);
+        EMULATOR.write().unwrap().cycles(cpu, 1);
     }
 }
 
@@ -341,10 +341,10 @@ fn proc_cb(cpu: &mut CPUContext) {
     let bit_op = (op >> 6) & 0b11;
     let mut reg_val = cpu.read_reg8(reg);
 
-    EMULATOR.lock().unwrap().cycles(cpu, 1);
+    EMULATOR.write().unwrap().cycles(cpu, 1);
 
     if reg == RegType::HL {
-        EMULATOR.lock().unwrap().cycles(cpu, 2);
+        EMULATOR.write().unwrap().cycles(cpu, 2);
     }
 
     match bit_op {
@@ -364,7 +364,7 @@ fn proc_cb(cpu: &mut CPUContext) {
             cpu.set_reg8(reg, reg_val);
         }
         _ => {
-            let c_flag = cpu.flag_c();
+            let c_flag = cpu.flag_c() as u8;
 
             match bit {
                 0 => {
@@ -490,10 +490,10 @@ fn proc_ldh(cpu: &mut CPUContext) {
         None => bus_write(cpu, cpu.mem_dest | 0xFF00, cpu.registers.a),
     }
 
-    EMULATOR.lock().unwrap().cycles(cpu, 1);
+    EMULATOR.write().unwrap().cycles(cpu, 1);
 }
 
-fn proc_jphl(cpu: &mut CPUContext) {
+fn proc_jphl(_cpu: &mut CPUContext) {
     panic!("PROCESS NOT YET IMPLEMENTED");
 }
 
@@ -517,22 +517,22 @@ fn check_cond(cpu: &mut CPUContext) -> bool {
     type CT = CondType;
     match cpu.cur_inst.cond {
         CT::NONE => true,
-        CT::C => cpu.flag_c() != 0,
-        CT::NC => cpu.flag_c() == 0,
-        CT::Z => cpu.flag_z() != 0,
-        CT::NZ => cpu.flag_z() == 0,
+        CT::C => cpu.flag_c(),
+        CT::NC => !cpu.flag_c(),
+        CT::Z => cpu.flag_z(),
+        CT::NZ => !cpu.flag_z(),
     }
 }
 
 fn goto_addr(cpu: &mut CPUContext, address: u16, push_pc: bool) {
     if check_cond(cpu) {
         if push_pc {
-            EMULATOR.lock().unwrap().cycles(cpu, 2);
+            EMULATOR.write().unwrap().cycles(cpu, 2);
             stack_push16(cpu, cpu.registers.pc);
         }
 
         cpu.registers.pc = address;
-        EMULATOR.lock().unwrap().cycles(cpu, 1);
+        EMULATOR.write().unwrap().cycles(cpu, 1);
     }
 }
 

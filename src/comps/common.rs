@@ -1,7 +1,14 @@
 use std::time::Duration;
 
-pub fn bit(a: u8, n: u8) -> u8 {
-    ((a & (1 << n)) != 0) as u8
+pub static COLORS: [u32; 4] = [
+    0xFFFFFFFF,
+    0xFFAAAAAA,
+    0xFF555555,
+    0xFF000000
+];
+
+pub fn bit(a: u8, n: u8) -> bool {
+    (a & (1 << n)) != 0
 }
 
 pub fn bit_set(a: &mut u8, n: u8, on: bool) {

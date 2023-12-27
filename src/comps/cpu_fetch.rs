@@ -24,15 +24,15 @@ impl CPUContext {
             },
             AM::RxD8 => {
                 self.fetched_data = bus_read(self, self.registers.pc) as u16;
-                EMULATOR.lock().unwrap().cycles(self, 1);
+                EMULATOR.write().unwrap().cycles(self, 1);
                 self.registers.pc += 1;
             },
             AM::D16 | AM::RxD16 => {
                 let lo = bus_read(self, self.registers.pc) as u16;
-                EMULATOR.lock().unwrap().cycles(self, 1);
+                EMULATOR.write().unwrap().cycles(self, 1);
     
                 let hi = bus_read(self, self.registers.pc + 1) as u16;
-                EMULATOR.lock().unwrap().cycles(self, 1);
+                EMULATOR.write().unwrap().cycles(self, 1);
                 
                 self.fetched_data = (hi << 8) | lo;
                 self.registers.pc += 2;
@@ -54,12 +54,12 @@ impl CPUContext {
                 }
 
                 self.fetched_data = bus_read(self, addr) as u16;
-                EMULATOR.lock().unwrap().cycles(self, 1);
+                EMULATOR.write().unwrap().cycles(self, 1);
             },
             AM::RxHLI | AM::RxHLD => {
                 let address = self.read_reg(self.cur_inst.reg2);
                 self.fetched_data = bus_read(self, address) as u16;
-                EMULATOR.lock().unwrap().cycles(self, 1);
+                EMULATOR.write().unwrap().cycles(self, 1);
     
                 if self.cur_inst.mode == AM::RxHLI {
                     let val = self.read_reg(Some(RegType::HL)) + 1;
@@ -84,31 +84,31 @@ impl CPUContext {
             },
             AM::RxA8 => {
                 self.fetched_data = bus_read(self, self.registers.pc) as u16;
-                EMULATOR.lock().unwrap().cycles(self, 1);
+                EMULATOR.write().unwrap().cycles(self, 1);
                 self.registers.pc += 1;
             },
             AM::A8xR => {
                 self.mem_dest = bus_read(self, self.registers.pc) as u16 | 0xFF00;
                 self.dest_is_mem = true;
-                EMULATOR.lock().unwrap().cycles(self, 1);
+                EMULATOR.write().unwrap().cycles(self, 1);
                 self.registers.pc += 1;
             },
             AM::HLxSPR => {
                 self.fetched_data = bus_read(self, self.registers.pc) as u16;
-                EMULATOR.lock().unwrap().cycles(self, 1);
+                EMULATOR.write().unwrap().cycles(self, 1);
                 self.registers.pc += 1;
             },
             AM::D8 => {
                 self.fetched_data = bus_read(self, self.registers.pc) as u16;
-                EMULATOR.lock().unwrap().cycles(self, 1);
+                EMULATOR.write().unwrap().cycles(self, 1);
                 self.registers.pc += 1;
             },
             AM::D16xR | AM::A16xR => {
                 let lo = bus_read(self, self.registers.pc) as u16;
-                EMULATOR.lock().unwrap().cycles(self, 1);
+                EMULATOR.write().unwrap().cycles(self, 1);
     
                 let hi = bus_read(self, self.registers.pc + 1) as u16;
-                EMULATOR.lock().unwrap().cycles(self, 1);
+                EMULATOR.write().unwrap().cycles(self, 1);
                 
                 self.mem_dest = (hi << 8) | lo;
                 self.dest_is_mem = true;
@@ -118,7 +118,7 @@ impl CPUContext {
             },
             AM::MRxD8 => {
                 self.fetched_data = bus_read(self, self.registers.pc) as u16;
-                EMULATOR.lock().unwrap().cycles(self, 1);
+                EMULATOR.write().unwrap().cycles(self, 1);
                 self.registers.pc += 1;
                 self.mem_dest = self.read_reg(self.cur_inst.reg1);
                 self.dest_is_mem = true;
@@ -128,20 +128,20 @@ impl CPUContext {
                 self.dest_is_mem = true;
                 let address = self.read_reg(self.cur_inst.reg1);
                 self.fetched_data = bus_read(self, address) as u16;
-                EMULATOR.lock().unwrap().cycles(self, 1);
+                EMULATOR.write().unwrap().cycles(self, 1);
             },
             AM::RxA16 => {
                 let lo = bus_read(self, self.registers.pc) as u16;
-                EMULATOR.lock().unwrap().cycles(self, 1);
+                EMULATOR.write().unwrap().cycles(self, 1);
     
                 let hi = bus_read(self, self.registers.pc + 1) as u16;
-                EMULATOR.lock().unwrap().cycles(self, 1);
+                EMULATOR.write().unwrap().cycles(self, 1);
     
                 let addr = (hi << 8) | lo;
     
                 self.registers.pc += 2;
                 self.fetched_data = bus_read(self, addr) as u16;
-                EMULATOR.lock().unwrap().cycles(self, 1);
+                EMULATOR.write().unwrap().cycles(self, 1);
             }
         }
     }

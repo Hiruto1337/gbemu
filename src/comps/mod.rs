@@ -15,3 +15,4 @@ pub mod cpu_fetch;
 pub mod io;
 pub mod dbg;
 pub mod dma;
+pub mod lcd;

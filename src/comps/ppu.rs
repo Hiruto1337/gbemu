@@ -1,4 +1,4 @@
-use std::sync::Mutex;
+use std::sync::RwLock;
 
 use super::cart::CART;
 
@@ -21,7 +21,7 @@ pub struct PPUContext {
     pub vram: [u8; 0x2000],
 }
 
-pub static PPU: Mutex<PPUContext> = Mutex::new(PPUContext {
+pub static PPU: RwLock<PPUContext> = RwLock::new(PPUContext {
     oam_ram: [OAMEntry {y: 0, x: 0, tile: 0, flag: 0} ; 40],
     vram: [0; 0x2000]
 });
@@ -29,7 +29,7 @@ pub static PPU: Mutex<PPUContext> = Mutex::new(PPUContext {
 impl PPUContext {
     pub fn init(&mut self) {
         // NOTICE: NEEDS VALIDATION
-        let cart = CART.lock().unwrap();
+        let cart = CART.read().unwrap();
         let oam_start: usize = 0xFE00;
 
         // Load OAM into PPU
