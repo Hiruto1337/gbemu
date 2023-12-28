@@ -33,7 +33,7 @@ pub fn bus_write(cpu: &mut CPUContext, address: u16, value: u8) {
         addr if addr < 0xFE00 => println!("UNSUPPORTED: Bus.write({address:04X}): Reserved echo RAM"), // Reserved echo RAM
         addr if addr < 0xFEA0 => {                                                                     // OAM
             if DMA.read().unwrap().transferring() {return;}
-            PPU.write().unwrap().oam_write(address, value);
+            ppu.oam_write(address, value);
         },
         addr if addr < 0xFF00 => println!("UNSUPPORTED: Bus.write({address:04X}): Unusable reserved"), // Unusable reserved,
         addr if addr < 0xFF80 => io_write(cpu, address, value),                                        // I/O Registers

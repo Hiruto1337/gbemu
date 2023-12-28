@@ -4,28 +4,28 @@ use super::{common::{bit, bit_set, COLORS}, dma::DMA};
 
 pub struct LCDContext {
     // Registers,
-    control: u8,        // 0xFF40
-    status: u8,         // 0xFF41
-    scroll_y: u8,       // 0xFF42
-    scroll_x: u8,       // 0xFF43
-    line_y: u8,         // 0xFF44
-    line_y_compare: u8, // 0xFF45
-    dma: u8,            // 0xFF46
-    bg_palette: u8,     // 0xFF47
-    obj1_palette: u8,   // 0xFF48
-    obj2_palette: u8,   // 0xFF49
-    window_y: u8,       // 0xFF4A
-    window_x: u8,       // 0xFF4B
+    pub control: u8,        // 0xFF40
+    pub status: u8,         // 0xFF41
+    pub scroll_y: u8,       // 0xFF42
+    pub scroll_x: u8,       // 0xFF43
+    pub line_y: u8,         // 0xFF44
+    pub line_y_compare: u8, // 0xFF45
+    pub dma: u8,            // 0xFF46
+    pub bg_palette: u8,     // 0xFF47
+    pub obj1_palette: u8,   // 0xFF48
+    pub obj2_palette: u8,   // 0xFF49
+    pub window_y: u8,       // 0xFF4A
+    pub window_x: u8,       // 0xFF4B
 
     // Other data
-    bg_colors: [u32; 4],
-    sprite1_colors: [u32; 4],
-    sprite2_colors: [u32; 4],
+    pub bg_colors: [u32; 4],
+    pub sprite1_colors: [u32; 4],
+    pub sprite2_colors: [u32; 4],
 }
 
 pub static LCD: RwLock<LCDContext> = RwLock::new(LCDContext {
     control: 0x91,
-    status: 0,
+    status: 0b10, // NOTICE: Starts in OAM mode
     scroll_y: 0,
     scroll_x: 0,
     line_y: 0,
@@ -142,11 +142,11 @@ impl LCDContext {
             },
             0xFF48 => {
                 self.obj1_palette = value;
-                self.update_palette(value, 1);
+                self.update_palette(value & (!0b11), 1);
             },
             0xFF49 => {
                 self.obj2_palette = value;
-                self.update_palette(value, 2);
+                self.update_palette(value & (!0b11), 2);
             },
             0xFF4A => self.window_y = value,
             0xFF4B => self.window_x = value,
@@ -362,13 +362,17 @@ impl LCDContext {
     }
 
     fn update_palette(&mut self, palette_data: u8, pal: u8) {
-        let colors;
-        match pal {
-            0 => colors = &mut self.bg_colors,
-            1 => colors = &mut self.sprite1_colors,
-            2 => colors = &mut self.sprite2_colors,
+        let colors = match pal {
+            0 => &mut self.bg_colors,
+            1 => &mut self.sprite1_colors,
+            2 => &mut self.sprite2_colors,
             _ => unreachable!()
-        }
+        };
+
+        colors[0] = COLORS[(palette_data & 0b11) as usize];
+        colors[1] = COLORS[((palette_data >> 2) & 0b11) as usize];
+        colors[2] = COLORS[((palette_data >> 4) & 0b11) as usize];
+        colors[3] = COLORS[((palette_data >> 6) & 0b11) as usize];
     }
 
     // Control
@@ -421,7 +425,8 @@ impl LCDContext {
         LCDMode::from(self.status & 0b11)
     }
 
-    pub fn status_mode_set(&mut self, mode: u8) {
+    pub fn status_mode_set(&mut self, mode: LCDMode) {
+        let mode = mode as u8;
         self.status &= !0b11;
         self.status |= mode;
     }

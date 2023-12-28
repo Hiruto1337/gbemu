@@ -1,6 +1,11 @@
 use std::sync::RwLock;
 
-use super::cart::CART;
+use super::{cart::CART, lcd::{LCD, LCDMode}};
+
+pub const LINES_PER_FRAME: u8 = 154;
+pub const TICKS_PER_LINE: u32 = 456;
+pub const Y_RES: u8 = 144;
+pub const X_RES: u8 = 160;
 
 #[derive(Clone, Copy)]
 pub struct OAMEntry {
@@ -19,32 +24,39 @@ pub struct OAMEntry {
 pub struct PPUContext {
     pub oam_ram: [OAMEntry; 40],
     pub vram: [u8; 0x2000],
+    pub current_frame: u32,
+    pub line_ticks: u32,
+    pub frame_buffer: [u32; Y_RES as usize * X_RES as usize * 4] // NOTICE: sizeof(32)???
 }
 
 pub static PPU: RwLock<PPUContext> = RwLock::new(PPUContext {
     oam_ram: [OAMEntry {y: 0, x: 0, tile: 0, flag: 0} ; 40],
-    vram: [0; 0x2000]
+    vram: [0; 0x2000],
+    current_frame: 0,
+    line_ticks: 0,
+    frame_buffer: [0; Y_RES as usize * X_RES as usize * 4]
 });
 
 impl PPUContext {
     pub fn init(&mut self) {
+
         // NOTICE: NEEDS VALIDATION
-        let cart = CART.read().unwrap();
-        let oam_start: usize = 0xFE00;
+        // let cart = CART.read().unwrap();
+        // let oam_start = 0xFE00;
 
         // Load OAM into PPU
-        for entry in 0..40 {
-            let index = oam_start + 4 * entry;
-            self.oam_ram[entry] = OAMEntry {
-                y: cart.rom_data[index],
-                x: cart.rom_data[index + 1],
-                tile: cart.rom_data[index + 2],
-                flag: cart.rom_data[index + 3]
-            }
-        }
+        // for entry in 0..40 {
+        //     let index = oam_start + 4 * entry;
+        //     self.oam_ram[entry] = OAMEntry {
+        //         y: cart.rom_data[index],
+        //         x: cart.rom_data[index + 1],
+        //         tile: cart.rom_data[index + 2],
+        //         flag: cart.rom_data[index + 3]
+        //     }
+        // }
 
         // Load VRAM into PPU
-        self.vram = cart.rom_data[0x8000..0xA000].try_into().unwrap();
+        // self.vram = cart.rom_data[0x8000..0xA000].try_into().unwrap();
     }
 
     pub fn oam_write(&mut self, mut address: u16, value: u8) {
@@ -94,5 +106,18 @@ impl PPUContext {
 
     pub fn vram_read(&self, address: u16) -> u8 {
         self.vram[(address - 0x8000) as usize]
+    }
+
+    pub fn tick(&mut self) {
+        self.line_ticks += 1;
+
+        println!("PPU.tick()!");
+        let lcd = LCD.write().unwrap();
+        match lcd.status_mode() {
+            LCDMode::OAM => self.mode_oam(lcd),
+            LCDMode::XFER => self.mode_xfer(lcd),
+            LCDMode::VBlank => self.mode_vblank(lcd),
+            LCDMode::HBlank => self.mode_hblank(lcd),
+        }
     }
 }

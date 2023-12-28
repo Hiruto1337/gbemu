@@ -16,3 +16,4 @@ pub mod io;
 pub mod dbg;
 pub mod dma;
 pub mod lcd;
+pub mod ppu_sm;

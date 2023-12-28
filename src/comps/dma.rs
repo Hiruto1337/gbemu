@@ -2,8 +2,6 @@
 
 use std::sync::RwLock;
 
-use crate::comps::common::delay;
-
 use super::{ppu::PPU, cpu::CPUContext, bus::bus_read};
 
 pub struct DMAContext {
@@ -44,11 +42,6 @@ impl DMAContext {
         self.byte += 1;
 
         self.active = self.byte < 0xA0;
-
-        if !self.active {
-            println!("DMA DONE!");
-            delay(2000);
-        }
     }
     
     pub fn transferring(&self) -> bool {

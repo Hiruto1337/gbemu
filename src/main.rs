@@ -1,8 +1,8 @@
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
-use gbemu::comps::{bus::bus_read, cart::CART, cpu::CPU, emu::EMULATOR, ppu::PPU, timer::TIMER, common::COLORS};
+use gbemu::comps::{bus::bus_read, cart::CART, cpu::CPU, emu::EMULATOR, ppu::PPU, timer::TIMER, common::{COLORS, TIME}};
 use sdl2::{
-    event::Event, keyboard::Keycode, pixels::{Color, PixelFormat, PixelFormatEnum}, rect::Rect, render::Canvas, video::Window,
+    event::Event, keyboard::Keycode, pixels::{Color, PixelFormatEnum}, rect::Rect, render::Canvas, video::Window,
     EventPump,
 };
 
@@ -16,8 +16,9 @@ fn main() {
     // Initialize PPU
     PPU.write().unwrap().init();
 
-    // Initialize SDL
+    // Initialize SDL and time
     let sdl_context = sdl2::init().unwrap();
+    *TIME.write().unwrap() = Some(Instant::now());
     let video_subsystem = sdl_context.video().unwrap();
 
     let debug_window = video_subsystem
@@ -47,11 +48,17 @@ fn main() {
         }
     });
 
+    let mut prev_frame = 0;
+
     // Update UI
     while !EMULATOR.read().unwrap().die {
-        delay(10);
         handle_events(&mut event_pump);
-        update_debug_window(&mut debug_canvas);
+
+        if prev_frame != PPU.read().unwrap().current_frame {
+            update_debug_window(&mut debug_canvas);
+        }
+
+        prev_frame = PPU.read().unwrap().current_frame;
     }
 }
 

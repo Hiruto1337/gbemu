@@ -1,6 +1,6 @@
 use std::sync::RwLock;
 
-use super::{timer::timer_tick, cpu::CPUContext, dma::DMA};
+use super::{timer::timer_tick, cpu::CPUContext, dma::DMA, ppu::PPU};
 
 /*
     Emu components:
@@ -38,6 +38,7 @@ impl EmulatorContext {
             for _ in 0..4 {
                 self.ticks += 1;
                 timer_tick(cpu);
+                // PPU.write().unwrap().tick();
             }
 
             DMA.write().unwrap().tick(cpu);

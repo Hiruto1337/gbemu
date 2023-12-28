@@ -1,4 +1,6 @@
-use std::time::Duration;
+use std::{time::{Duration, Instant}, sync::RwLock};
+
+pub static TIME: RwLock<Option<Instant>> = RwLock::new(None);
 
 pub static COLORS: [u32; 4] = [
     0xFFFFFFFF,

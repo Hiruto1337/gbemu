@@ -49,25 +49,25 @@ pub static CPU: RwLock<CPUContext> = RwLock::new(CPUContext {
 impl CPUContext {
     pub fn step(&mut self) {
         if !self.halted {
-            let pc = self.registers.pc;
+            // let pc = self.registers.pc;
             self.fetch_instruction();
 
-            println!("{:08X} - ${:04X}: {:14} ({:02X} {:02X} {:02X}) A: {:02X} F: {:04b} BC: {:02X}{:02X} DE: {:02X}{:02X} HL: {:02X}{:02X}",
-                EMULATOR.read().unwrap().ticks,
-                pc,
-                self.inst_string(),
-                self.cur_opcode,
-                bus_read(self, pc + 1),
-                bus_read(self, pc + 2),
-                self.registers.a,
-                self.registers.f >> 4,
-                self.registers.b,
-                self.registers.c,
-                self.registers.d,
-                self.registers.e,
-                self.registers.h,
-                self.registers.l,
-            );
+            // println!("{:08X} - ${:04X}: {:14} ({:02X} {:02X} {:02X}) A: {:02X} F: {:04b} BC: {:02X}{:02X} DE: {:02X}{:02X} HL: {:02X}{:02X}",
+            //     EMULATOR.read().unwrap().ticks,
+            //     pc,
+            //     self.inst_string(),
+            //     self.cur_opcode,
+            //     bus_read(self, pc + 1),
+            //     bus_read(self, pc + 2),
+            //     self.registers.a,
+            //     self.registers.f >> 4,
+            //     self.registers.b,
+            //     self.registers.c,
+            //     self.registers.d,
+            //     self.registers.e,
+            //     self.registers.h,
+            //     self.registers.l,
+            // );
             
             EMULATOR.write().unwrap().cycles(self, 1);
             self.fetch_data();

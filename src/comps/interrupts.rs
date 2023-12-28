@@ -2,11 +2,11 @@ use crate::comps::{cpu::CPUContext, stack::stack_push16};
 
 #[derive(Clone, Copy)]
 pub enum InterruptType {
-    VBlank = 1,
-    LCDStat = 2,
-    Timer = 4,
-    Serial = 8,
-    Joypad = 16
+    VBlank  = 0b00001,
+    LCDStat = 0b00010,
+    Timer   = 0b00100,
+    Serial  = 0b01000,
+    Joypad  = 0b10000
 }
 
 fn int_check(cpu: &mut CPUContext, address: u16, it: InterruptType) -> bool {
