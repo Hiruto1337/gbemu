@@ -1,5 +1,7 @@
 use crate::comps::{cpu::CPUContext, stack::stack_push16};
 
+use super::ppu::PPUContext;
+
 #[derive(Clone, Copy)]
 pub enum InterruptType {
     VBlank  = 0b00001,
@@ -9,9 +11,9 @@ pub enum InterruptType {
     Joypad  = 0b10000
 }
 
-fn int_check(cpu: &mut CPUContext, address: u16, it: InterruptType) -> bool {
+fn int_check(cpu: &mut CPUContext, ppu: &mut PPUContext, address: u16, it: InterruptType) -> bool {
     if cpu.int_flags & it as u8 != 0 && cpu.get_ie_reg() & it as u8 != 0 {
-        int_handle(cpu, address);
+        int_handle(cpu, ppu, address);
         cpu.int_flags &= !(it as u8);
         cpu.halted = false;
         cpu.int_master_enabled = false;
@@ -22,22 +24,22 @@ fn int_check(cpu: &mut CPUContext, address: u16, it: InterruptType) -> bool {
     false
 }
 
-pub fn int_handle(cpu: &mut CPUContext, address: u16) {
-    stack_push16(cpu, cpu.registers.pc);
+pub fn int_handle(cpu: &mut CPUContext, ppu: &mut PPUContext, address: u16) {
+    stack_push16(cpu, ppu, cpu.registers.pc);
     cpu.registers.pc = address;
 }
 
-pub fn handle_interrupts(cpu: &mut CPUContext) {
+pub fn handle_interrupts(cpu: &mut CPUContext, ppu: &mut PPUContext) {
     type IT = InterruptType;
-    if int_check(cpu, 0x40, IT::VBlank) {
+    if int_check(cpu, ppu, 0x40, IT::VBlank) {
 
-    } else if int_check(cpu, 0x48, IT::LCDStat) {
+    } else if int_check(cpu, ppu, 0x48, IT::LCDStat) {
 
-    } else if int_check(cpu, 0x50, IT::Timer) {
+    } else if int_check(cpu, ppu, 0x50, IT::Timer) {
         
-    } else if int_check(cpu, 0x58, IT::Serial) {
+    } else if int_check(cpu, ppu, 0x58, IT::Serial) {
         
-    } else if int_check(cpu, 0x60, IT::Joypad) {
+    } else if int_check(cpu, ppu, 0x60, IT::Joypad) {
         
     }
 }

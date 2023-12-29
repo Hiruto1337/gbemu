@@ -1,7 +1,9 @@
 use crate::comps::{cpu::CPUContext, instructions::RegType, bus::{bus_read, bus_write}};
 
+use super::ppu::PPUContext;
+
 impl CPUContext {
-    pub fn read_reg8(&mut self, rt: RegType) -> u8 {
+    pub fn read_reg8(&mut self, ppu: &PPUContext, rt: RegType) -> u8 {
         type RT = RegType;
         match rt {
             RT::A => self.registers.a,
@@ -14,7 +16,7 @@ impl CPUContext {
             RT::L => self.registers.l,
             RT::HL => {
                 let address = self.read_reg(Some(RT::HL));
-                bus_read(self, address)
+                bus_read(self, ppu, address)
             },
             _ => panic!("INVALID REG8: {rt:?}")
         }
@@ -43,7 +45,7 @@ impl CPUContext {
         }
     }
     
-    pub fn set_reg8(&mut self, rt: RegType, val: u8) {
+    pub fn set_reg8(&mut self, ppu: &mut PPUContext, rt: RegType, val: u8) {
         type RT = RegType;
         match rt {
             RT::A => self.registers.a = val,
@@ -56,7 +58,7 @@ impl CPUContext {
             RT::L => self.registers.l = val,
             RT::HL => {
                 let address = self.read_reg(Some(RT::HL));
-                bus_write(self, address, val);
+                bus_write(self, ppu, address, val);
             },
             _ => panic!("INVALID REG8: {rt:?}")
         }

@@ -1,6 +1,6 @@
 use std::time::{Duration, Instant};
 
-use gbemu::comps::{bus::bus_read, cart::CART, cpu::CPU, emu::EMULATOR, ppu::PPU, timer::TIMER, common::{COLORS, TIME}};
+use gbemu::comps::{bus::bus_read, cart::CART, cpu::CPU, emu::EMULATOR, ppu::{PPU, X_RES, Y_RES}, timer::TIMER, common::{COLORS, TIME}};
 use sdl2::{
     event::Event, keyboard::Keycode, pixels::{Color, PixelFormatEnum}, rect::Rect, render::Canvas, video::Window,
     EventPump,
@@ -14,7 +14,7 @@ fn main() {
     CART.write().unwrap().load(args);
 
     // Initialize PPU
-    PPU.write().unwrap().init();
+    // PPU.write().unwrap().init();
 
     // Initialize SDL and time
     let sdl_context = sdl2::init().unwrap();
@@ -32,6 +32,14 @@ fn main() {
         .unwrap();
 
     let mut debug_canvas = debug_window.into_canvas().build().unwrap();
+
+    let ui_window = video_subsystem.window("Game", X_RES as u32 * SCALE as u32, Y_RES as u32 * SCALE as u32)
+    .position_centered()
+    .build()
+    .unwrap();
+
+    let mut ui_canvas = ui_window.into_canvas().build().unwrap();
+
     let mut event_pump = sdl_context.event_pump().unwrap();
 
     // Initialize CPU on separate thread
@@ -44,17 +52,21 @@ fn main() {
                 continue;
             }
 
-            CPU.write().unwrap().step();
+            CPU.write().unwrap().step(&mut PPU.write().unwrap()); // LOCKING CPU AND PPU
+            // NOTICE: This means that neither the CPU or PPU are accessible during the step()
         }
     });
 
     let mut prev_frame = 0;
 
-    // Update UI
+    // While the emulator is running
     while !EMULATOR.read().unwrap().die {
+        delay(100);
         handle_events(&mut event_pump);
-
+        
         if prev_frame != PPU.read().unwrap().current_frame {
+            // Update UI
+            update_ui_window(&mut ui_canvas);
             update_debug_window(&mut debug_canvas);
         }
 
@@ -86,9 +98,11 @@ pub fn display_tile(
 
     for line in (0..16).step_by(2) {
         let cpu = CPU.read().unwrap();
-        let byte1 = bus_read(&cpu, start_location + (tile_num * 16) + line);
-        let byte2 = bus_read(&cpu, start_location + (tile_num * 16) + line + 1);
+        let ppu = PPU.read().unwrap();
+        let byte1 = bus_read(&cpu, &ppu, start_location + (tile_num * 16) + line);
+        let byte2 = bus_read(&cpu, &ppu, start_location + (tile_num * 16) + line + 1);
         drop(cpu);
+        drop(ppu);
 
         for bit in (0..8).rev() {
             let hi_bit = ((byte1 >> bit) & 1) << 1;
@@ -109,6 +123,26 @@ pub fn display_tile(
             debug_canvas.draw_rect(rect).unwrap();
         }
     }
+}
+
+pub fn update_ui_window(ui_canvas: &mut Canvas<Window>) {
+    let mut rect = Rect::new(0, 0, SCALE as u32, SCALE as u32);
+
+    let frame_buffer = &PPU.read().unwrap().frame_buffer;
+
+    for line in 0..Y_RES {
+        for x in 0..X_RES {
+            rect.x = x as i32 * SCALE as i32;
+            rect.y = line as i32 * SCALE as i32;
+
+            let color_value = frame_buffer[x as usize + line as usize * X_RES as usize];
+            let color = Color::from_u32(&PixelFormatEnum::ABGR8888.try_into().unwrap() ,color_value);
+            ui_canvas.set_draw_color(color);
+            ui_canvas.fill_rect(rect).unwrap();
+        }
+    }
+
+    ui_canvas.present();
 }
 
 pub fn update_debug_window(debug_canvas: &mut Canvas<Window>) {

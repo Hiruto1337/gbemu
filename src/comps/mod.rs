@@ -17,3 +17,4 @@ pub mod dbg;
 pub mod dma;
 pub mod lcd;
 pub mod ppu_sm;
+pub mod ppu_pipeline;

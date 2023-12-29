@@ -4,7 +4,7 @@ pub struct ROMHeader {
     _entry: [u8; 4],
     _logo: [u8; 0x30],
 
-    title: [char; 16],
+    pub title: [char; 16],
     _new_lic_code: u16,
     _sgb_flag: u8,
     type_: u8,
@@ -17,8 +17,8 @@ pub struct ROMHeader {
     _global_checksum: u16,
 }
 
-impl ROMHeader {
-    pub fn from(rom_data: &Vec<u8>) -> Self {
+impl From<&Vec<u8>> for ROMHeader {
+    fn from(rom_data: &Vec<u8>) -> Self {
         ROMHeader {
             _entry: rom_data[0x100..=0x103].try_into().unwrap(),
             _logo: rom_data[0x104..=0x133].try_into().unwrap(),
@@ -41,14 +41,14 @@ pub struct CartContext {
     _filename: [char; 1024],
     rom_size: u32,
     pub rom_data: Vec<u8>,
-    _header: ROMHeader
+    pub header: ROMHeader
 }
 
 pub static CART: RwLock<CartContext> = RwLock::new(CartContext {
     _filename: [' '; 1024],
     rom_size: 0,
     rom_data: vec![],
-    _header: ROMHeader {
+    header: ROMHeader {
         _entry: [0; 4],
         _logo: [0; 48],
         title: [' '; 16],
@@ -84,16 +84,16 @@ impl CartContext {
         file.read_to_end(&mut self.rom_data).unwrap();
 
         // Create ROMHeader from data
-        let header = ROMHeader::from(&self.rom_data);
+        self.header = ROMHeader::from(&self.rom_data);
 
         // Display data
         println!("Cartridge Loaded:");
-        println!("\t Title    : {}", header.title.iter().collect::<String>());
-        println!("\t Type     : {:02X} ({})", header.type_, ROM_TYPES[header.type_ as usize]);
-        println!("\t ROM Size : {} KB", 32 << header.rom_size);
-        println!("\t RAM Size : {:02X}", header.ram_size);
-        println!("\t LIC Code : {:02X} ({})", header.lic_code, lic_code(header.lic_code));
-        println!("\t ROM Vers : {:02X}", header.version);
+        println!("\t Title    : {}", self.header.title.iter().collect::<String>());
+        println!("\t Type     : {:02X} ({})", self.header.type_, ROM_TYPES[self.header.type_ as usize]);
+        println!("\t ROM Size : {} KB", 32 << self.header.rom_size);
+        println!("\t RAM Size : {:02X}", self.header.ram_size);
+        println!("\t LIC Code : {:02X} ({})", self.header.lic_code, lic_code(self.header.lic_code));
+        println!("\t ROM Vers : {:02X}", self.header.version);
 
         // Validate checksum
         let mut x: u16 = 0;
@@ -102,7 +102,7 @@ impl CartContext {
             x = x.wrapping_sub(self.rom_data[i] as u16).wrapping_sub(1);
         }
 
-        println!("\t Checksum : {:02X} ({})", header.checksum, if x as u8 != 0 {"PASSED"} else {"FAILED"});
+        println!("\t Checksum : {:02X} ({})", self.header.checksum, if x as u8 != 0 {"PASSED"} else {"FAILED"});
 
         // Convert filename from &str to [char; 1024]
         let chars = filename.chars();

@@ -1,8 +1,8 @@
 use std::sync::RwLock;
 
-use crate::comps::{instructions::AddrMode, emu::EMULATOR, bus::bus_read};
+use crate::comps::{instructions::AddrMode, emu::EMULATOR, bus::bus_read, ppu::PPU};
 
-use super::{instructions::{Instruction, INSTRUCTIONS}, common::*, cpu_proc::proc_by_inst, interrupts::*};
+use super::{instructions::{Instruction, INSTRUCTIONS}, common::*, cpu_proc::proc_by_inst, interrupts::*, ppu::PPUContext};
 
 pub struct CPUContext {
     pub registers: Registers,
@@ -47,18 +47,18 @@ pub static CPU: RwLock<CPUContext> = RwLock::new(CPUContext {
 });
 
 impl CPUContext {
-    pub fn step(&mut self) {
+    pub fn step(&mut self, ppu: &mut PPUContext) {
         if !self.halted {
             // let pc = self.registers.pc;
-            self.fetch_instruction();
+            self.fetch_instruction(ppu);
 
             // println!("{:08X} - ${:04X}: {:14} ({:02X} {:02X} {:02X}) A: {:02X} F: {:04b} BC: {:02X}{:02X} DE: {:02X}{:02X} HL: {:02X}{:02X}",
             //     EMULATOR.read().unwrap().ticks,
             //     pc,
-            //     self.inst_string(),
+            //     self.inst_string(ppu),
             //     self.cur_opcode,
-            //     bus_read(self, pc + 1),
-            //     bus_read(self, pc + 2),
+            //     bus_read(self, ppu, pc + 1),
+            //     bus_read(self, ppu, pc + 2),
             //     self.registers.a,
             //     self.registers.f >> 4,
             //     self.registers.b,
@@ -69,19 +69,19 @@ impl CPUContext {
             //     self.registers.l,
             // );
             
-            EMULATOR.write().unwrap().cycles(self, 1);
-            self.fetch_data();
+            EMULATOR.write().unwrap().cycles(self, ppu, 1);
+            self.fetch_data(ppu);
 
-            self.execute();
+            self.execute(ppu);
         } else {
-            EMULATOR.write().unwrap().cycles(self, 1);
+            EMULATOR.write().unwrap().cycles(self, ppu, 1);
             if self.int_flags != 0 {
                 self.halted = false;
             }
         }
 
         if self.int_master_enabled {
-            handle_interrupts(self);
+            handle_interrupts(self, ppu);
             self.enabling_ime = false;
         }
 
@@ -90,10 +90,10 @@ impl CPUContext {
         }
     }
 
-    fn execute(&mut self) {
+    fn execute(&mut self, ppu: &mut PPUContext) {
         let proc = proc_by_inst(self.cur_inst.inst_type);
 
-        proc(self);
+        proc(self, ppu);
     }
 
     pub fn set_flags(&mut self, z: Option<bool>, n: Option<bool>, h: Option<bool>, c: Option<bool>) {
@@ -140,7 +140,11 @@ impl CPUContext {
         self.ie_register = value;
     }
 
-    fn inst_string(&self) -> String {
+    pub fn request_interrupt(&mut self, int_type: InterruptType) {
+        self.int_flags |= int_type as u8;
+    }
+
+    fn inst_string(&self, ppu: &PPUContext) -> String {
         type AM = AddrMode;
         let inst = self.cur_inst;
 
@@ -158,7 +162,7 @@ impl CPUContext {
                 AM::RxHLD => format!("{},({}-)", inst.reg1.unwrap(), inst.reg2.unwrap()),
                 AM::HLIxR => format!("({}+),{}", inst.reg1.unwrap(), inst.reg2.unwrap()),
                 AM::HLDxR => format!("({}-),{}", inst.reg1.unwrap(), inst.reg2.unwrap()),
-                AM::A8xR => format!("{},{}", bus_read(self, self.registers.pc - 1), inst.reg2.unwrap()),
+                AM::A8xR => format!("{},{}", bus_read(self, ppu, self.registers.pc - 1), inst.reg2.unwrap()),
                 AM::HLxSPR => format!("({}),SP+${:02X}", inst.reg1.unwrap(), self.fetched_data as u8),
                 AM::D16 => format!("${:04X}", self.fetched_data),
                 AM::D8 => format!("${:02X}", self.fetched_data as u8),
@@ -168,10 +172,6 @@ impl CPUContext {
                 AM::A16xR => format!("(${:04X}),{}", self.fetched_data, inst.reg2.unwrap()),
             }
         )
-    }
-
-    pub fn request_interrupt(&mut self, int_type: InterruptType) {
-        self.int_flags |= int_type as u8;
     }
 }
 

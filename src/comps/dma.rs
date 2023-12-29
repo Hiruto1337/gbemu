@@ -2,7 +2,7 @@
 
 use std::sync::RwLock;
 
-use super::{ppu::PPU, cpu::CPUContext, bus::bus_read};
+use super::{cpu::CPUContext, bus::bus_read, ppu::PPUContext};
 
 pub struct DMAContext {
     pub active: bool,
@@ -26,7 +26,7 @@ impl DMAContext {
         self.value = start;
     }
     
-    pub fn tick(&mut self, cpu: &CPUContext) {
+    pub fn tick(&mut self, cpu: &CPUContext, ppu: &mut PPUContext) {
         if !self.active {
             return;
         }
@@ -37,8 +37,8 @@ impl DMAContext {
         }
 
         // NOTICE: Should check
-        let value = bus_read(cpu, self.value as u16 * 0x100 + self.byte as u16);
-        PPU.write().unwrap().oam_write(self.byte as u16, value);
+        let value = bus_read(cpu, ppu, self.value as u16 * 0x100 + self.byte as u16);
+        ppu.oam_write(self.byte as u16, value);
         self.byte += 1;
 
         self.active = self.byte < 0xA0;

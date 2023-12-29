@@ -1,9 +1,8 @@
-use super::{cart::CART, ram::RAM, io::{io_read, io_write}, cpu::CPUContext, ppu::PPU, dma::DMA};
+use super::{cart::CART, ram::RAM, io::{io_read, io_write}, cpu::CPUContext, ppu::PPUContext, dma::DMA};
 
-pub fn bus_read(cpu: &CPUContext, address: u16) -> u8 {
+pub fn bus_read(cpu: &CPUContext, ppu: &PPUContext, address: u16) -> u8 {
     let cart = CART.read().unwrap();
     let ram = RAM.read().unwrap();
-    let ppu = PPU.read().unwrap();
     match address {
         addr if addr < 0x8000 => cart.read(address),     // ROM data
         addr if addr < 0xA000 => ppu.vram_read(address), // Char/map data
@@ -21,10 +20,9 @@ pub fn bus_read(cpu: &CPUContext, address: u16) -> u8 {
     }
 }
 
-pub fn bus_write(cpu: &mut CPUContext, address: u16, value: u8) {
+pub fn bus_write(cpu: &mut CPUContext, ppu: &mut PPUContext, address: u16, value: u8) {
     let mut cart = CART.write().unwrap();
     let mut ram = RAM.write().unwrap();
-    let mut ppu = PPU.write().unwrap();
     match address {
         addr if addr < 0x8000 => cart.write(address, value),                                           // ROM data
         addr if addr < 0xA000 => ppu.vram_write(address, value),                                       // Char/map data
@@ -42,16 +40,16 @@ pub fn bus_write(cpu: &mut CPUContext, address: u16, value: u8) {
     }
 }
 
-pub fn bus_read16(cpu: &mut CPUContext, address: u16) -> u16 {
-    let lo = bus_read(cpu, address) as u16;
-    let hi = bus_read(cpu, address + 1) as u16;
+pub fn bus_read16(cpu: &mut CPUContext, ppu: &PPUContext, address: u16) -> u16 {
+    let lo = bus_read(cpu, ppu, address) as u16;
+    let hi = bus_read(cpu, ppu, address + 1) as u16;
 
     return (hi << 8) | lo;
 }
 
-pub fn bus_write16(cpu: &mut CPUContext, address: u16, value: u16) {
-    bus_write(cpu, address + 1, (value >> 8) as u8);
-    bus_write(cpu, address, value as u8);
+pub fn bus_write16(cpu: &mut CPUContext, ppu: &mut PPUContext, address: u16, value: u16) {
+    bus_write(cpu, ppu, address + 1, (value >> 8) as u8);
+    bus_write(cpu, ppu, address, value as u8);
 }
 
 // 0x0000 - 0x3FFF : ROM Bank 0

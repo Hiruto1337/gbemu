@@ -1,6 +1,6 @@
 use std::sync::RwLock;
 
-use super::{timer::timer_tick, cpu::CPUContext, dma::DMA, ppu::PPU};
+use super::{timer::timer_tick, cpu::CPUContext, dma::DMA, ppu::{PPU, PPUContext}};
 
 /*
     Emu components:
@@ -33,15 +33,15 @@ pub static EMULATOR: RwLock<EmulatorContext> = RwLock::new(EmulatorContext {
 });
 
 impl EmulatorContext {
-    pub fn cycles(&mut self, cpu: &mut CPUContext, cpu_cycles: u8) {
+    pub fn cycles(&mut self, cpu: &mut CPUContext, ppu: &mut PPUContext, cpu_cycles: u8) {
         for _ in 0..cpu_cycles {
             for _ in 0..4 {
                 self.ticks += 1;
                 timer_tick(cpu);
-                // PPU.write().unwrap().tick();
+                ppu.tick(cpu);
             }
 
-            DMA.write().unwrap().tick(cpu);
+            DMA.write().unwrap().tick(cpu, ppu);
         }
     }
 }
