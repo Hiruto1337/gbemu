@@ -8,7 +8,7 @@ use super::{
 impl PPUContext {
     pub fn pipeline_process(&mut self, cpu: &mut CPUContext, lcd: &mut LCDContext) {
         self.pfc.map_y = lcd.line_y.wrapping_add(lcd.scroll_y); // NOTICE: wrapping_add()
-        self.pfc.map_x = self.pfc.fetch_x + lcd.scroll_x;
+        self.pfc.map_x = self.pfc.fetch_x.wrapping_add(lcd.scroll_x); // NOTICE: wrapping_add()
         self.pfc.tile_y = ((lcd.line_y.wrapping_add(lcd.scroll_y)) % 8) * 2; // NOTICE: wrapping_add()
 
         // Every other tick
